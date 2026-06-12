@@ -5,6 +5,7 @@ import {
   ClipboardList,
   Settings,
   Trophy,
+  BarChart3,
   Search,
   CheckSquare2,
   Square,
@@ -33,6 +34,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { DayCell, PeriodCalendar } from '@/components/calendar';
 import ScoreTab from '@/components/ScoreTab';
+import StatsTab from '@/components/StatsTab';
 import WarningPanel from '@/components/WarningPanel';
 import WarningManager from '@/components/WarningManager';
 import {
@@ -60,7 +62,7 @@ import type {
   Warning,
 } from '@/lib/types';
 
-type TabValue = 'dashboard' | 'input' | 'score' | 'manage';
+type TabValue = 'dashboard' | 'input' | 'score' | 'stats' | 'manage';
 
 const contentOptions: ContentType[] = ['길드전', '공성전', '강림원정대'];
 
@@ -654,7 +656,7 @@ export default function App() {
         </motion.div>
 
         <Tabs value={tab} onValueChange={(value) => setTab(value as TabValue)} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 rounded-[20px] bg-zinc-100 p-1.5 min-h-[56px] items-center shadow-[inset_0_1px_0_rgba(255,255,255,0.7),0_1px_3px_rgba(15,23,42,0.06)]">
+          <TabsList className="grid w-full grid-cols-5 rounded-[20px] bg-zinc-100 p-1.5 min-h-[56px] items-center shadow-[inset_0_1px_0_rgba(255,255,255,0.7),0_1px_3px_rgba(15,23,42,0.06)]">
             <TabsTrigger value="dashboard" className="flex h-11 w-full items-center justify-center rounded-[14px] px-4 text-sm font-medium text-zinc-600 transition data-[state=active]:bg-white data-[state=active]:text-zinc-900 data-[state=active]:shadow-sm">
               <Calendar className="mr-2 h-4 w-4" />현황판
             </TabsTrigger>
@@ -663,6 +665,9 @@ export default function App() {
             </TabsTrigger>
             <TabsTrigger value="score" className="flex h-11 w-full items-center justify-center rounded-[14px] px-4 text-sm font-medium text-zinc-600 transition data-[state=active]:bg-white data-[state=active]:text-zinc-900 data-[state=active]:shadow-sm">
               <Trophy className="mr-2 h-4 w-4" />점수
+            </TabsTrigger>
+            <TabsTrigger value="stats" className="flex h-11 w-full items-center justify-center rounded-[14px] px-4 text-sm font-medium text-zinc-600 transition data-[state=active]:bg-white data-[state=active]:text-zinc-900 data-[state=active]:shadow-sm">
+              <BarChart3 className="mr-2 h-4 w-4" />통계
             </TabsTrigger>
             <TabsTrigger value="manage" className="flex h-11 w-full items-center justify-center rounded-[14px] px-4 text-sm font-medium text-zinc-600 transition data-[state=active]:bg-white data-[state=active]:text-zinc-900 data-[state=active]:shadow-sm">
               <Settings className="mr-2 h-4 w-4" />관리
@@ -899,6 +904,11 @@ export default function App() {
           {/* ── 점수 ──────────────────────────────── */}
           <TabsContent value="score" className="space-y-6">
             <ScoreTab members={activeMembers} />
+          </TabsContent>
+
+          {/* ── 통계 ──────────────────────────────── */}
+          <TabsContent value="stats" className="space-y-6">
+            <StatsTab members={activeMembers} />
           </TabsContent>
 
           {/* ── 관리 ──────────────────────────────── */}

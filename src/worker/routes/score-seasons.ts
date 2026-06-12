@@ -7,7 +7,7 @@ import type { ScoreType } from '@/lib/types';
 
 const app = new Hono<AppEnv>();
 
-const VALID_TYPES: ScoreType[] = ['총력전', '길드전'];
+const VALID_TYPES: ScoreType[] = ['총력전', '길드전', '강림전'];
 
 function serialize(row: { id: number; type: string; name: string; roundCount: number }) {
   return { id: row.id, type: row.type as ScoreType, name: row.name, roundCount: row.roundCount };

@@ -35,3 +35,36 @@ export function deltaColorClass(delta: Delta): string {
   if (delta.kind === 'down') return 'text-sky-500';
   return 'text-zinc-400';
 }
+
+// ── 점수구간(버킷) ────────────────────────────────────
+export type Bucket = { label: string; min: number; max: number; count: number };
+
+// 값들을 size(기본 500) 단위 구간으로 나눠 인원수를 집계한다. 높은 구간이 위로 오도록 내림차순.
+export function bucketize(values: number[], size = 500): Bucket[] {
+  const nums = values.filter((v) => Number.isFinite(v));
+  if (nums.length === 0) return [];
+  const min = Math.min(...nums);
+  const max = Math.max(...nums);
+  const startBucket = Math.floor(min / size) * size;
+  const endBucket = Math.floor(max / size) * size;
+  const buckets: Bucket[] = [];
+  for (let b = endBucket; b >= startBucket; b -= size) {
+    const count = nums.filter((v) => v >= b && v < b + size).length;
+    buckets.push({
+      label: `${b.toLocaleString()} ~ ${(b + size - 1).toLocaleString()}`,
+      min: b,
+      max: b + size - 1,
+      count,
+    });
+  }
+  return buckets;
+}
+
+// 특정 점수가 속한 구간의 시작값 (size 배수)
+export function bucketStart(value: number, size = 500): number {
+  return Math.floor(value / size) * size;
+}
+
+export function bucketLabel(start: number, size = 500): string {
+  return `${start.toLocaleString()} ~ ${(start + size - 1).toLocaleString()}`;
+}

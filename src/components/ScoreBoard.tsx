@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Table2, TrendingUp } from 'lucide-react';
 import {
   Card,
   CardContent,
@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/select';
 import { api } from '@/lib/api';
 import { computeDelta, deltaText, deltaColorClass } from '@/lib/score';
+import ScoreChart from '@/components/ScoreChart';
 import type { Member, ScoreCell, ScoreSeason, ScoreType } from '@/lib/types';
 
 type Props = {
@@ -35,6 +36,17 @@ export default function ScoreBoard({ type, members }: Props) {
   const [scoreMap, setScoreMap] = useState<Record<string, number>>({});
   const [newSeasonName, setNewSeasonName] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
+  const [view, setView] = useState<'table' | 'chart'>('table');
+
+  // scoreMap -> ScoreCell[] (그래프용)
+  const cells = useMemo<ScoreCell[]>(
+    () =>
+      Object.entries(scoreMap).map(([key, score]) => {
+        const [memberId, round] = key.split(':').map(Number);
+        return { memberId, round, score };
+      }),
+    [scoreMap],
+  );
 
   const selectedSeason = useMemo(
     () => seasons.find((s) => s.id === selectedSeasonId) ?? null,
@@ -275,6 +287,35 @@ export default function ScoreBoard({ type, members }: Props) {
             활성 길드원이 없습니다. 관리 탭에서 길드원을 추가하세요.
           </div>
         ) : (
+          <div className="space-y-4">
+            <div className="flex justify-end">
+              <div className="inline-flex rounded-xl bg-zinc-100 p-1">
+                <button
+                  type="button"
+                  onClick={() => setView('table')}
+                  className={[
+                    'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition',
+                    view === 'table' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500',
+                  ].join(' ')}
+                >
+                  <Table2 className="h-4 w-4" />점수표
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setView('chart')}
+                  className={[
+                    'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition',
+                    view === 'chart' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500',
+                  ].join(' ')}
+                >
+                  <TrendingUp className="h-4 w-4" />그래프
+                </button>
+              </div>
+            </div>
+
+            {view === 'chart' ? (
+              <ScoreChart members={members} cells={cells} />
+            ) : (
           <div className="overflow-x-auto">
             <table className="w-full border-separate border-spacing-0 text-sm">
               <thead>
@@ -340,6 +381,8 @@ export default function ScoreBoard({ type, members }: Props) {
                 ))}
               </tbody>
             </table>
+          </div>
+            )}
           </div>
         )}
       </CardContent>

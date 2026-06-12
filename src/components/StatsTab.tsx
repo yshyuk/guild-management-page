@@ -1,14 +1,14 @@
 import { useState } from 'react';
 import { Swords, Shield, Flame } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import ScoreBoard from '@/components/ScoreBoard';
+import StatsBoard from '@/components/StatsBoard';
 import type { Member, ScoreType } from '@/lib/types';
 
 type Props = {
   members: Member[];
 };
 
-export default function ScoreTab({ members }: Props) {
+export default function StatsTab({ members }: Props) {
   const [scoreType, setScoreType] = useState<ScoreType>('총력전');
 
   return (
@@ -39,13 +39,13 @@ export default function ScoreTab({ members }: Props) {
       </TabsList>
 
       <TabsContent value="총력전">
-        <ScoreBoard type="총력전" members={members} />
+        <StatsBoard type="총력전" members={members} />
       </TabsContent>
       <TabsContent value="길드전">
-        <ScoreBoard type="길드전" members={members} />
+        <StatsBoard type="길드전" members={members} />
       </TabsContent>
       <TabsContent value="강림전">
-        <ScoreBoard type="강림전" members={members} />
+        <StatsBoard type="강림전" members={members} />
       </TabsContent>
     </Tabs>
   );

@@ -1,5 +1,5 @@
 export type ContentType = '길드전' | '공성전' | '강림원정대';
-export type ScoreType = '총력전' | '길드전';
+export type ScoreType = '총력전' | '길드전' | '강림전';
 
 export type Member = {
   id: number;
