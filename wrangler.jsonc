@@ -15,7 +15,7 @@
     {
       "binding": "DB",
       "database_name": "guild-db",
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "16a0eed4-ffd3-463f-b00f-26dbc75dfcd4",
       "migrations_dir": "drizzle"
     }
   ]
