@@ -6,6 +6,7 @@ import {
   Settings,
   Trophy,
   BarChart3,
+  Swords,
   Search,
   CheckSquare2,
   Square,
@@ -638,22 +639,23 @@ export default function App() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-zinc-50 to-zinc-100 p-3 sm:p-4 md:p-6 xl:p-8">
       <div className="mx-auto max-w-[1600px] space-y-6">
-        <motion.div
+        <motion.header
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex flex-col gap-4"
+          className="flex items-center gap-4"
         >
-          <div>
-            <div className="mb-2 flex items-center gap-2 text-sm text-zinc-500">
-              <Badge variant="outline" className="rounded-full px-3 py-1">
-                길드 관리
-              </Badge>
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-zinc-900 text-white shadow-sm ring-1 ring-zinc-900/10">
+            <Swords className="h-6 w-6" />
+          </div>
+          <div className="min-w-0">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-zinc-400">
+              GUILD MANAGER
             </div>
-            <h1 className="text-2xl font-bold tracking-tight text-zinc-900 sm:text-3xl">
+            <h1 className="truncate text-2xl font-bold tracking-tight text-zinc-900 sm:text-3xl">
               길드 컨텐츠 참여 관리
             </h1>
           </div>
-        </motion.div>
+        </motion.header>
 
         <Tabs value={tab} onValueChange={(value) => setTab(value as TabValue)} className="space-y-6">
           <TabsList className="grid w-full grid-cols-5 rounded-[20px] bg-zinc-100 p-1.5 min-h-[56px] items-center shadow-[inset_0_1px_0_rgba(255,255,255,0.7),0_1px_3px_rgba(15,23,42,0.06)]">
