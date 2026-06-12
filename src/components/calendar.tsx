@@ -64,6 +64,7 @@ type DayCellProps = {
   rangeEnd: string;
   logs: MissLog[];
   guildWarPeriods: GuildWarPeriod[];
+  powerWarPeriods: GuildWarPeriod[];
   raidDeadlines: RaidDeadline[];
   onCreateDate: (dateStr: string) => void;
   onEditLog: (log: MissLog) => void;
@@ -75,6 +76,7 @@ export function DayCell({
   rangeEnd,
   logs,
   guildWarPeriods,
+  powerWarPeriods,
   raidDeadlines,
   onCreateDate,
   onEditLog,
@@ -83,6 +85,7 @@ export function DayCell({
   const inSelectedRange = isWithin(dateStr, rangeStart, rangeEnd);
   const dayLogs = logs.filter((log) => log.date === dateStr);
   const guildWar = guildWarPeriods.some((period) => isWithin(dateStr, period.start, period.end));
+  const powerWar = powerWarPeriods.some((period) => isWithin(dateStr, period.start, period.end));
   const raidDay = raidDeadlines.some((item) => item.date === dateStr);
   const dayOfWeek = day.getDay();
   const dayColor =
@@ -108,7 +111,12 @@ export function DayCell({
       className={[
         'relative flex min-h-[110px] w-full flex-col rounded-2xl border p-2 text-left transition sm:min-h-[140px] sm:p-3 md:min-h-[180px]',
         inSelectedRange ? 'cursor-pointer bg-white hover:shadow-sm' : 'bg-zinc-50 text-zinc-400 opacity-65',
-        guildWar ? 'border-amber-400 border-2' : 'border-zinc-200',
+        // 총력전(초록) 우선, 그다음 길드전(노랑), 둘 다 아니면 기본
+        powerWar
+          ? 'border-emerald-500 border-2'
+          : guildWar
+            ? 'border-amber-400 border-2'
+            : 'border-zinc-200',
         raidDay ? 'bg-zinc-100/90' : '',
       ].join(' ')}
     >

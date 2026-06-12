@@ -85,13 +85,18 @@ export default function App() {
   const [newMember, setNewMember] = useState<string>('');
   const [search, setSearch] = useState<string>('');
   const [guildWarPeriods, setGuildWarPeriods] = useState<GuildWarPeriod[]>([]);
+  const [powerWarPeriods, setPowerWarPeriods] = useState<GuildWarPeriod[]>([]);
   const [raidDeadlines, setRaidDeadlines] = useState<RaidDeadline[]>([]);
   const [guildWarDraftStart, setGuildWarDraftStart] = useState<string>(today);
   const [guildWarDraftEnd, setGuildWarDraftEnd] = useState<string>(today);
   const [editingGuildWarId, setEditingGuildWarId] = useState<number | null>(null);
+  const [powerWarDraftStart, setPowerWarDraftStart] = useState<string>(today);
+  const [powerWarDraftEnd, setPowerWarDraftEnd] = useState<string>(today);
+  const [editingPowerWarId, setEditingPowerWarId] = useState<number | null>(null);
   const [raidDraftDate, setRaidDraftDate] = useState<string>(today);
   const [editingRaidId, setEditingRaidId] = useState<number | null>(null);
   const [guildWarCalendarBase, setGuildWarCalendarBase] = useState<string>(today);
+  const [powerWarCalendarBase, setPowerWarCalendarBase] = useState<string>(today);
   const [raidCalendarBase, setRaidCalendarBase] = useState<string>(today);
   const [showInactiveMembers, setShowInactiveMembers] = useState<boolean>(false);
   const [editingMemberId, setEditingMemberId] = useState<number | null>(null);
@@ -163,6 +168,13 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    fetch('/api/power-war-periods', { cache: 'no-store' })
+      .then((res) => (res.ok ? res.json() : Promise.reject()))
+      .then((data: GuildWarPeriod[]) => setPowerWarPeriods(data))
+      .catch(console.error);
+  }, []);
+
+  useEffect(() => {
     fetch('/api/raid-deadlines', { cache: 'no-store' })
       .then((res) => (res.ok ? res.json() : Promise.reject()))
       .then((data: RaidDeadline[]) => setRaidDeadlines(data))
@@ -199,6 +211,7 @@ export default function App() {
   }, [showInactiveMembers, inactiveMembers, activeMembers, search]);
 
   const guildWarCalendarRange = useMemo(() => getMonthRange(guildWarCalendarBase), [guildWarCalendarBase]);
+  const powerWarCalendarRange = useMemo(() => getMonthRange(powerWarCalendarBase), [powerWarCalendarBase]);
   const raidCalendarRange = useMemo(() => getMonthRange(raidCalendarBase), [raidCalendarBase]);
 
   const buildRangeGridDays = useMemo(
@@ -570,6 +583,78 @@ export default function App() {
     }
   };
 
+  // ── 총력전 기간 (길드전 기간과 동일 동작, 현황판 초록 테두리) ──
+  const savePowerWarPeriod = async () => {
+    if (!powerWarDraftStart || !powerWarDraftEnd) return;
+    try {
+      if (editingPowerWarId) {
+        const res = await fetch(`/api/power-war-periods/${editingPowerWarId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ start: powerWarDraftStart, end: powerWarDraftEnd }),
+        });
+        if (!res.ok) throw new Error('Failed to update power war period');
+        const updated = (await res.json()) as GuildWarPeriod;
+        setPowerWarPeriods((prev) =>
+          sortByDate(prev.map((i) => (i.id === updated.id ? updated : i)), 'start'),
+        );
+      } else {
+        const res = await fetch('/api/power-war-periods', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ start: powerWarDraftStart, end: powerWarDraftEnd }),
+        });
+        if (!res.ok) throw new Error('Failed to create power war period');
+        const created = (await res.json()) as GuildWarPeriod;
+        setPowerWarPeriods((prev) => sortByDate([...prev, created], 'start'));
+      }
+      setEditingPowerWarId(null);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const selectPowerWarPeriod = (item: GuildWarPeriod | RaidDeadline) => {
+    if (!('start' in item)) return;
+    setEditingPowerWarId(item.id);
+    setPowerWarDraftStart(item.start);
+    setPowerWarDraftEnd(item.end);
+  };
+
+  const deletePowerWarPeriod = async () => {
+    if (!editingPowerWarId) return;
+    try {
+      const res = await fetch(`/api/power-war-periods/${editingPowerWarId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete power war period');
+      setPowerWarPeriods((prev) => prev.filter((i) => i.id !== editingPowerWarId));
+      setEditingPowerWarId(null);
+      setPowerWarDraftStart(rangeStart);
+      setPowerWarDraftEnd(rangeEnd);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const autoAddNextPowerWarPeriod = async () => {
+    const nextPeriod = getNextGuildWarPeriod(powerWarPeriods);
+    if (!nextPeriod) return;
+    try {
+      const res = await fetch('/api/power-war-periods', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(nextPeriod),
+      });
+      if (!res.ok) throw new Error('Failed to create next power war period');
+      const created = (await res.json()) as GuildWarPeriod;
+      setPowerWarDraftStart(created.start);
+      setPowerWarDraftEnd(created.end);
+      setEditingPowerWarId(null);
+      setPowerWarPeriods((prev) => sortByDate([...prev, created], 'start'));
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
   const saveRaidDeadline = async () => {
     if (!raidDraftDate) return;
     try {
@@ -701,7 +786,11 @@ export default function App() {
                     </div>
                   </div>
 
-                  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+                  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-7">
+                    <div className="hidden rounded-2xl border-2 border-emerald-500 bg-white px-4 py-3 text-sm text-zinc-700 md:block">
+                      <div className="font-medium text-zinc-800">총력전 시즌</div>
+                      초록 테두리
+                    </div>
                     <div className="hidden rounded-2xl border-2 border-amber-400 bg-white px-4 py-3 text-sm text-zinc-700 md:block">
                       <div className="font-medium text-zinc-800">길드전 시즌</div>
                       노란 테두리
@@ -750,6 +839,7 @@ export default function App() {
                         rangeEnd={rangeEnd}
                         logs={logs}
                         guildWarPeriods={guildWarPeriods}
+                        powerWarPeriods={powerWarPeriods}
                         raidDeadlines={raidDeadlines}
                         onCreateDate={loadNewEntry}
                         onEditLog={loadExistingEntry}
@@ -937,7 +1027,47 @@ export default function App() {
 
                 <Card className="rounded-[28px] border-0 shadow-sm">
                   <CardHeader>
-                    <CardTitle className="text-xl">길드전 기간 설정</CardTitle>
+                    <CardTitle className="flex items-center gap-2 text-xl">
+                      <span className="inline-block h-3 w-3 rounded-sm border-2 border-emerald-500" />
+                      총력전 기간 설정
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto_auto_auto] md:items-end">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">시작일</label>
+                        <Input type="date" value={powerWarDraftStart} onChange={(e) => setPowerWarDraftStart(e.target.value)} className="rounded-2xl" />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">종료일</label>
+                        <Input type="date" value={powerWarDraftEnd} onChange={(e) => setPowerWarDraftEnd(e.target.value)} className="rounded-2xl" />
+                      </div>
+                      <Button className="rounded-2xl" onClick={savePowerWarPeriod}>{editingPowerWarId ? '수정 저장' : '시즌 추가'}</Button>
+                      <Button variant="outline" className="rounded-2xl" onClick={autoAddNextPowerWarPeriod}><Wand2 className="mr-2 h-4 w-4" />다음 시즌 자동</Button>
+                      <Button variant="outline" className="rounded-2xl" onClick={deletePowerWarPeriod} disabled={!editingPowerWarId}><Trash2 className="mr-2 h-4 w-4" />삭제</Button>
+                    </div>
+                    <PeriodCalendar
+                      title="시즌 달력"
+                      description="표시된 시즌을 누르면 위 입력칸에 반영됩니다."
+                      baseDate={powerWarCalendarBase}
+                      onPrevMonth={() => setPowerWarCalendarBase(shiftMonth(powerWarCalendarBase, -1))}
+                      onNextMonth={() => setPowerWarCalendarBase(shiftMonth(powerWarCalendarBase, 1))}
+                      rangeStart={powerWarCalendarRange.start}
+                      rangeEnd={powerWarCalendarRange.end}
+                      items={powerWarPeriods}
+                      type="period"
+                      selectedId={editingPowerWarId}
+                      onSelect={selectPowerWarPeriod}
+                    />
+                  </CardContent>
+                </Card>
+
+                <Card className="rounded-[28px] border-0 shadow-sm">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-xl">
+                      <span className="inline-block h-3 w-3 rounded-sm border-2 border-amber-400" />
+                      길드전 기간 설정
+                    </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto_auto_auto] md:items-end">

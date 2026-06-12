@@ -66,6 +66,23 @@ export const guildWarPeriods = sqliteTable(
   ],
 );
 
+// 총력전 기간 (길드전 기간과 동일 구조, 현황판에 초록 테두리로 표시)
+export const powerWarPeriods = sqliteTable(
+  'power_war_periods',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    startDate: text('start_date').notNull(), // YYYY-MM-DD
+    endDate: text('end_date').notNull(),
+    createdAt: text('created_at')
+      .notNull()
+      .default(sql`(current_timestamp)`),
+  },
+  (t) => [
+    index('power_war_periods_start_idx').on(t.startDate),
+    index('power_war_periods_end_idx').on(t.endDate),
+  ],
+);
+
 // 강림원정대 마감일
 export const raidDeadlines = sqliteTable(
   'raid_deadlines',
