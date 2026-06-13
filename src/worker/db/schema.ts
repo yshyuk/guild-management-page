@@ -132,8 +132,8 @@ export const scoreSeasons = sqliteTable(
     id: integer('id').primaryKey({ autoIncrement: true }),
     type: text('type').notNull(),
     name: text('name').notNull(),
-    startDate: text('start_date').notNull(), // YYYY-MM-DD
-    endDate: text('end_date').notNull(), // YYYY-MM-DD (오늘 > end 이면 종료된 시즌)
+    startDate: text('start_date'), // YYYY-MM-DD (시작 전이면 null)
+    endDate: text('end_date'), // YYYY-MM-DD (종료 전이면 null)
     createdAt: text('created_at')
       .notNull()
       .default(sql`(current_timestamp)`),
