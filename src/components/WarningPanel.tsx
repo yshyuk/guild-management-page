@@ -30,7 +30,7 @@ export default function WarningPanel({ warnings }: Props) {
         <CardTitle className="flex items-center gap-2 text-xl">
           <AlertTriangle className="h-5 w-5 text-amber-500" />경고 현황
         </CardTitle>
-        <CardDescription>길드원별 누적 경고 횟수와 경고 내역입니다.</CardDescription>
+        <CardDescription>선택한 기간 · 활성 길드원 기준 누적 경고와 내역입니다.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
         <div className="overflow-hidden rounded-2xl border border-zinc-200">
