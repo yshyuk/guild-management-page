@@ -13,8 +13,8 @@ function serialize(row: {
   id: number;
   type: string;
   name: string;
-  startDate: string;
-  endDate: string;
+  startDate: string | null;
+  endDate: string | null;
 }) {
   return {
     id: row.id,
@@ -29,27 +29,22 @@ app.get('/', async (c) => {
   const type = c.req.query('type');
   const db = getDb(c.env.DB);
   const where = type ? eq(scoreSeasons.type, type) : undefined;
-  const rows = await db
-    .select()
-    .from(scoreSeasons)
-    .where(where)
-    .orderBy(asc(scoreSeasons.endDate), asc(scoreSeasons.id));
+  const rows = await db.select().from(scoreSeasons).where(where).orderBy(asc(scoreSeasons.id));
   return c.json(rows.map(serialize));
 });
 
 app.post('/', async (c) => {
-  const body = await c.req.json<{ type?: string; name?: string; start?: string; end?: string }>();
+  const body = await c.req.json<{ type?: string; name?: string; start?: string | null; end?: string | null }>();
   const name = body.name?.trim();
   if (!body.type || !VALID_TYPES.includes(body.type as ScoreType)) {
     return c.json({ error: 'valid type is required' }, 400);
   }
   if (!name) return c.json({ error: 'name is required' }, 400);
-  if (!body.start || !body.end) return c.json({ error: 'start and end are required' }, 400);
 
   const db = getDb(c.env.DB);
   const [created] = await db
     .insert(scoreSeasons)
-    .values({ type: body.type, name, startDate: body.start, endDate: body.end })
+    .values({ type: body.type, name, startDate: body.start ?? null, endDate: body.end ?? null })
     .returning();
   return c.json(serialize(created), 201);
 });
@@ -58,21 +53,17 @@ app.patch('/:id', async (c) => {
   const id = Number(c.req.param('id'));
   if (Number.isNaN(id)) return c.json({ error: 'Invalid id' }, 400);
 
-  const body = await c.req.json<{ name?: string; start?: string; end?: string }>();
-  const data: { name?: string; startDate?: string; endDate?: string } = {};
+  const body = await c.req.json<{ name?: string; start?: string | null; end?: string | null }>();
+  const data: { name?: string; startDate?: string | null; endDate?: string | null } = {};
   if (typeof body.name === 'string' && body.name.trim()) data.name = body.name.trim();
-  if (typeof body.start === 'string' && body.start) data.startDate = body.start;
-  if (typeof body.end === 'string' && body.end) data.endDate = body.end;
+  if ('start' in body) data.startDate = body.start ?? null;
+  if ('end' in body) data.endDate = body.end ?? null;
   if (Object.keys(data).length === 0) {
     return c.json({ error: 'No valid fields provided' }, 400);
   }
 
   const db = getDb(c.env.DB);
-  const [updated] = await db
-    .update(scoreSeasons)
-    .set(data)
-    .where(eq(scoreSeasons.id, id))
-    .returning();
+  const [updated] = await db.update(scoreSeasons).set(data).where(eq(scoreSeasons.id, id)).returning();
   if (!updated) return c.json({ error: 'Not found' }, 404);
   return c.json(serialize(updated));
 });

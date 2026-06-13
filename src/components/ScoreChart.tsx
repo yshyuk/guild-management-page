@@ -32,7 +32,6 @@ type Props = {
   seasons: ScoreSeason[];
   selectedSeasonId: number | null;
   allScores: SeasonScore[];
-  today: string;
 };
 
 const EMPTY = (msg: string) => (
@@ -41,7 +40,7 @@ const EMPTY = (msg: string) => (
   </div>
 );
 
-export default function ScoreChart({ members, seasons, selectedSeasonId, allScores, today }: Props) {
+export default function ScoreChart({ members, seasons, selectedSeasonId, allScores }: Props) {
   const [mode, setMode] = useState<'single' | 'trend'>('single');
   const [memberFilter, setMemberFilter] = useState<string>('all');
 
@@ -53,7 +52,7 @@ export default function ScoreChart({ members, seasons, selectedSeasonId, allScor
     return buildSingleSeasonBars(members, map);
   }, [members, allScores, selectedSeasonId]);
 
-  const ended = useMemo(() => endedSeasons(seasons, today), [seasons, today]);
+  const ended = useMemo(() => endedSeasons(seasons), [seasons]);
   const trendData = useMemo(() => buildTrendData(members, allScores, ended), [members, allScores, ended]);
 
   const drawnMembers = useMemo(() => {

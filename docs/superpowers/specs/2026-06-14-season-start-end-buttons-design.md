@@ -20,13 +20,15 @@
 - 의미: 시작 전 시즌은 둘 다 NULL. `시작` 후 start만, `종료` 후 end도 채워짐.
 
 ### 마이그레이션 (drizzle/0003)
-- **데이터 보존**(wipe 아님). SQLite는 컬럼 nullability를 ALTER로 못 바꾸므로 테이블 재생성 패턴 사용:
-  1. `PRAGMA foreign_keys=OFF;`
-  2. `CREATE TABLE __new_score_seasons (...)` — start_date/end_date를 nullable로 정의, 그 외 동일.
-  3. `INSERT INTO __new_score_seasons SELECT id, type, name, start_date, end_date, created_at FROM score_seasons;` (id 보존)
-  4. `DROP TABLE score_seasons; ALTER TABLE __new_score_seasons RENAME TO score_seasons;`
-  5. `CREATE INDEX score_seasons_type_idx ...;`
-  6. `PRAGMA foreign_keys=ON;`
+- **데이터 보존**(wipe 아님). SQLite는 컬럼 nullability를 ALTER로 못 바꾸므로 테이블 재생성 패턴 사용. 단, **cascade-safe** 순서로 작성한다:
+  1. `CREATE TABLE __new_score_seasons (...)` — start_date/end_date를 nullable로 정의, 그 외 동일.
+  2. `INSERT INTO __new_score_seasons SELECT ... FROM score_seasons;` (id 보존)
+  3. `CREATE TABLE __backup_scores AS SELECT * FROM scores;` (scores 백업)
+  4. `DELETE FROM scores;` (자식 비우기 → 부모 DROP 시 cascade 대상 없음)
+  5. `DROP TABLE score_seasons; ALTER TABLE __new_score_seasons RENAME TO score_seasons;`
+  6. `INSERT INTO scores SELECT ... FROM __backup_scores; DROP TABLE __backup_scores;` (복원)
+  7. `CREATE INDEX score_seasons_type_idx ...;`
+- **주의**: D1는 마이그레이션을 트랜잭션으로 실행하므로 `PRAGMA foreign_keys=OFF`가 무효(no-op)다. 부모 `score_seasons`를 자식(`scores`)이 있는 채로 DROP하면 암시적 행삭제 → `ON DELETE CASCADE`로 scores가 전부 삭제된다. 위 4·6단계(scores 백업/복원)로 회피한다.
 - id가 보존되므로 `scores.season_id` FK 무결성 유지. 로컬·원격 모두 `wrangler d1 migrations apply`로 적용(데이터 유지).
 
 ### 타입 (lib/types.ts)

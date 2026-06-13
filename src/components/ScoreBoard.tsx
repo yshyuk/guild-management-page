@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Plus, Trash2, Table2, TrendingUp } from 'lucide-react';
+import { Plus, Trash2, Table2, TrendingUp, Play, Flag } from 'lucide-react';
 import {
   Card,
   CardContent,
@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/select';
 import { api } from '@/lib/api';
 import { computeDelta, deltaText, deltaColorClass } from '@/lib/score';
-import { toScoreMap, prevSeason, sortSeasons } from '@/lib/analysis';
+import { toScoreMap, prevSeason, sortSeasons, endedSeasons } from '@/lib/analysis';
 import { formatDate } from '@/lib/dates';
 import ScoreChart from '@/components/ScoreChart';
 import type { Member, ScoreSeason, ScoreType, SeasonScore } from '@/lib/types';
@@ -35,8 +35,8 @@ export default function ScoreBoard({ type, members }: Props) {
   const [allScores, setAllScores] = useState<SeasonScore[]>([]);
   const [scoreMap, setScoreMap] = useState<Record<number, number>>({});
   const [newSeasonName, setNewSeasonName] = useState('');
-  const [newSeasonStart, setNewSeasonStart] = useState(today);
-  const [newSeasonEnd, setNewSeasonEnd] = useState(today);
+  const [newSeasonStart, setNewSeasonStart] = useState('');
+  const [newSeasonEnd, setNewSeasonEnd] = useState('');
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<'table' | 'chart'>('table');
 
@@ -129,17 +129,19 @@ export default function ScoreBoard({ type, members }: Props) {
 
   const addSeason = async () => {
     const name = newSeasonName.trim();
-    if (!name || !newSeasonStart || !newSeasonEnd) return;
+    if (!name) return;
     try {
       const created = await api.post<ScoreSeason>('/score-seasons', {
         type,
         name,
-        start: newSeasonStart,
-        end: newSeasonEnd,
+        start: newSeasonStart || null,
+        end: newSeasonEnd || null,
       });
       setSeasons((prev) => [...prev, created]);
       setSelectedSeasonId(created.id);
       setNewSeasonName('');
+      setNewSeasonStart('');
+      setNewSeasonEnd('');
     } catch (error) {
       console.error(error);
     }
@@ -162,6 +164,28 @@ export default function ScoreBoard({ type, members }: Props) {
       console.error(error);
     }
   };
+
+  const updateSeason = async (patch: { start?: string | null; end?: string | null }) => {
+    if (!selectedSeason) return;
+    try {
+      const updated = await api.patch<ScoreSeason>(`/score-seasons/${selectedSeason.id}`, patch);
+      setSeasons((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const selectedEnded = useMemo(
+    () => (selectedSeason ? endedSeasons(seasons).some((s) => s.id === selectedSeason.id) : false),
+    [seasons, selectedSeason],
+  );
+  const selectedStatus = !selectedSeason
+    ? ''
+    : selectedEnded
+      ? '종료'
+      : selectedSeason.start != null
+        ? '진행 중'
+        : '대기';
 
   return (
     <Card className="rounded-[28px] border-0 shadow-sm">
@@ -220,6 +244,50 @@ export default function ScoreBoard({ type, members }: Props) {
             <Plus className="mr-1 h-4 w-4" />시즌 추가
           </Button>
         </div>
+
+        {selectedSeason && (
+          <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-zinc-200 bg-zinc-50/60 p-3">
+            <div className="flex items-center gap-2 pb-1">
+              <span className="text-sm font-medium text-zinc-700">{selectedSeason.name}</span>
+              <span
+                className={[
+                  'rounded-full px-2 py-0.5 text-xs font-semibold',
+                  selectedStatus === '진행 중'
+                    ? 'bg-emerald-100 text-emerald-700'
+                    : selectedStatus === '대기'
+                      ? 'bg-zinc-200 text-zinc-600'
+                      : 'bg-sky-100 text-sky-700',
+                ].join(' ')}
+              >
+                {selectedStatus}
+              </span>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-zinc-500">시작일</label>
+              <Input
+                type="date"
+                value={selectedSeason.start ?? ''}
+                onChange={(e) => void updateSeason({ start: e.target.value || null })}
+                className="h-9 w-[150px] rounded-2xl"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-zinc-500">종료일</label>
+              <Input
+                type="date"
+                value={selectedSeason.end ?? ''}
+                onChange={(e) => void updateSeason({ end: e.target.value || null })}
+                className="h-9 w-[150px] rounded-2xl"
+              />
+            </div>
+            <Button variant="outline" className="rounded-2xl" onClick={() => void updateSeason({ start: today })}>
+              <Play className="mr-1 h-4 w-4" />시작
+            </Button>
+            <Button variant="outline" className="rounded-2xl" onClick={() => void updateSeason({ end: today })}>
+              <Flag className="mr-1 h-4 w-4" />종료
+            </Button>
+          </div>
+        )}
       </CardHeader>
 
       <CardContent>
@@ -260,7 +328,6 @@ export default function ScoreBoard({ type, members }: Props) {
                 seasons={seasons}
                 selectedSeasonId={selectedSeasonId}
                 allScores={allScores}
-                today={today}
               />
             ) : (
               <div className="overflow-hidden rounded-2xl border border-zinc-200">

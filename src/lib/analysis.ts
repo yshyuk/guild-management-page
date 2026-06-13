@@ -8,12 +8,12 @@ export function toScoreMap(cells: { memberId: number; score: number }[]): Map<nu
   return m;
 }
 
-// 시즌 정렬: 종료일 오름차순, id 보조
+// 시즌 정렬: 생성순(id 오름차순)
 export function sortSeasons(seasons: ScoreSeason[]): ScoreSeason[] {
-  return [...seasons].sort((a, b) => a.end.localeCompare(b.end) || a.id - b.id);
+  return [...seasons].sort((a, b) => a.id - b.id);
 }
 
-// 직전 시즌 (정렬 기준 바로 앞). 첫 시즌이면 null.
+// 직전 시즌 (생성순 바로 앞). 첫 시즌이면 null.
 export function prevSeason(seasons: ScoreSeason[], currentId: number): ScoreSeason | null {
   const sorted = sortSeasons(seasons);
   const idx = sorted.findIndex((s) => s.id === currentId);
@@ -21,9 +21,12 @@ export function prevSeason(seasons: ScoreSeason[], currentId: number): ScoreSeas
   return sorted[idx - 1];
 }
 
-// 종료된 시즌만 (오늘 > 종료일), 종료일 오름차순
-export function endedSeasons(seasons: ScoreSeason[], today: string): ScoreSeason[] {
-  return sortSeasons(seasons).filter((s) => s.end < today);
+// 종료된 시즌(전체 시즌추이 포함 대상): 종료일이 있거나, 최신(마지막 생성) 시즌이 아니면 종료.
+export function endedSeasons(seasons: ScoreSeason[]): ScoreSeason[] {
+  const sorted = sortSeasons(seasons);
+  if (sorted.length === 0) return [];
+  const latestId = sorted[sorted.length - 1].id;
+  return sorted.filter((s) => s.end != null || s.id !== latestId);
 }
 
 export type RankRow = {

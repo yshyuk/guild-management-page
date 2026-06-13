@@ -41,7 +41,6 @@
 
 `drizzle/0003_nullable_season_dates.sql` 생성:
 ```sql
-PRAGMA foreign_keys=OFF;--> statement-breakpoint
 CREATE TABLE `__new_score_seasons` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`type` text NOT NULL,
@@ -52,11 +51,16 @@ CREATE TABLE `__new_score_seasons` (
 );
 --> statement-breakpoint
 INSERT INTO `__new_score_seasons` (`id`,`type`,`name`,`start_date`,`end_date`,`created_at`) SELECT `id`,`type`,`name`,`start_date`,`end_date`,`created_at` FROM `score_seasons`;--> statement-breakpoint
+CREATE TABLE `__backup_scores` AS SELECT * FROM `scores`;--> statement-breakpoint
+DELETE FROM `scores`;--> statement-breakpoint
 DROP TABLE `score_seasons`;--> statement-breakpoint
 ALTER TABLE `__new_score_seasons` RENAME TO `score_seasons`;--> statement-breakpoint
-CREATE INDEX `score_seasons_type_idx` ON `score_seasons` (`type`);--> statement-breakpoint
-PRAGMA foreign_keys=ON;
+INSERT INTO `scores` (`id`,`season_id`,`member_id`,`score`,`created_at`) SELECT `id`,`season_id`,`member_id`,`score`,`created_at` FROM `__backup_scores`;--> statement-breakpoint
+DROP TABLE `__backup_scores`;--> statement-breakpoint
+CREATE INDEX `score_seasons_type_idx` ON `score_seasons` (`type`);
 ```
+
+> **중요(데이터 안전)**: `PRAGMA foreign_keys=OFF`는 D1가 마이그레이션을 트랜잭션으로 실행할 때 무효(no-op)다. 따라서 부모 `score_seasons`를 그냥 DROP하면 암시적 행 삭제로 `scores`의 `ON DELETE CASCADE`가 발동해 점수가 전부 삭제된다. 이를 피하려고 `scores`를 임시 테이블에 백업→비우기→부모 교체→복원하는 순서로 작성했다.
 
 - [ ] **Step 3: 로컬 적용 + 데이터 보존 검증**
 
