@@ -52,8 +52,8 @@ export type ScoreSeason = {
   id: number;
   type: ScoreType;
   name: string;
-  start: string; // YYYY-MM-DD
-  end: string; // YYYY-MM-DD
+  start: string | null; // YYYY-MM-DD (시작 전이면 null)
+  end: string | null; // YYYY-MM-DD (종료 전이면 null)
 };
 
 // 단일 시즌 점수 (시즌당 길드원 1점수)
