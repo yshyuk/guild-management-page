@@ -9,8 +9,20 @@ const app = new Hono<AppEnv>();
 
 const VALID_TYPES: ScoreType[] = ['총력전', '길드전', '강림전'];
 
-function serialize(row: { id: number; type: string; name: string; roundCount: number }) {
-  return { id: row.id, type: row.type as ScoreType, name: row.name, roundCount: row.roundCount };
+function serialize(row: {
+  id: number;
+  type: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+}) {
+  return {
+    id: row.id,
+    type: row.type as ScoreType,
+    name: row.name,
+    start: row.startDate,
+    end: row.endDate,
+  };
 }
 
 app.get('/', async (c) => {
@@ -21,23 +33,23 @@ app.get('/', async (c) => {
     .select()
     .from(scoreSeasons)
     .where(where)
-    .orderBy(asc(scoreSeasons.id));
+    .orderBy(asc(scoreSeasons.endDate), asc(scoreSeasons.id));
   return c.json(rows.map(serialize));
 });
 
 app.post('/', async (c) => {
-  const body = await c.req.json<{ type?: string; name?: string; roundCount?: number }>();
+  const body = await c.req.json<{ type?: string; name?: string; start?: string; end?: string }>();
   const name = body.name?.trim();
   if (!body.type || !VALID_TYPES.includes(body.type as ScoreType)) {
     return c.json({ error: 'valid type is required' }, 400);
   }
   if (!name) return c.json({ error: 'name is required' }, 400);
+  if (!body.start || !body.end) return c.json({ error: 'start and end are required' }, 400);
 
   const db = getDb(c.env.DB);
-  const roundCount = Math.max(1, body.roundCount ?? 1);
   const [created] = await db
     .insert(scoreSeasons)
-    .values({ type: body.type, name, roundCount })
+    .values({ type: body.type, name, startDate: body.start, endDate: body.end })
     .returning();
   return c.json(serialize(created), 201);
 });
@@ -46,10 +58,11 @@ app.patch('/:id', async (c) => {
   const id = Number(c.req.param('id'));
   if (Number.isNaN(id)) return c.json({ error: 'Invalid id' }, 400);
 
-  const body = await c.req.json<{ name?: string; roundCount?: number }>();
-  const data: { name?: string; roundCount?: number } = {};
+  const body = await c.req.json<{ name?: string; start?: string; end?: string }>();
+  const data: { name?: string; startDate?: string; endDate?: string } = {};
   if (typeof body.name === 'string' && body.name.trim()) data.name = body.name.trim();
-  if (typeof body.roundCount === 'number') data.roundCount = Math.max(1, body.roundCount);
+  if (typeof body.start === 'string' && body.start) data.startDate = body.start;
+  if (typeof body.end === 'string' && body.end) data.endDate = body.end;
   if (Object.keys(data).length === 0) {
     return c.json({ error: 'No valid fields provided' }, 400);
   }
