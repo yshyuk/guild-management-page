@@ -19,16 +19,36 @@ const members: Member[] = [
   { id: 11, name: '나', active: true },
 ];
 
+describe('sortSeasons', () => {
+  it('생성순(id 오름차순)으로 정렬', () => {
+    const shuffled = [seasons[2], seasons[0], seasons[1]];
+    expect(sortSeasons(shuffled).map((s) => s.id)).toEqual([1, 2, 3]);
+  });
+});
+
 describe('prevSeason', () => {
-  it('직전 시즌은 종료일 기준 바로 앞', () => {
+  it('직전 시즌은 생성순 바로 앞', () => {
     expect(prevSeason(seasons, 2)?.id).toBe(1);
     expect(prevSeason(seasons, 1)).toBeNull();
   });
 });
 
 describe('endedSeasons', () => {
-  it('오늘보다 종료일이 이른 시즌만', () => {
-    expect(endedSeasons(seasons, '2026-03-15').map((s) => s.id)).toEqual([1, 2]);
+  it('종료일이 없어도 최신 시즌이 아니면 종료로 본다', () => {
+    const s: ScoreSeason[] = [
+      { id: 1, type: '총력전', name: 'S1', start: '2026-01-01', end: '2026-01-31' },
+      { id: 2, type: '총력전', name: 'S2', start: '2026-02-01', end: null },
+      { id: 3, type: '총력전', name: 'S3', start: '2026-03-01', end: null },
+    ];
+    // 1: 종료일 있음, 2: 종료일 없지만 최신 아님 → 둘 다 종료. 3: 최신 + 종료일 없음 → 제외
+    expect(endedSeasons(s).map((x) => x.id)).toEqual([1, 2]);
+  });
+  it('최신 시즌도 종료일이 있으면 포함', () => {
+    const s: ScoreSeason[] = [
+      { id: 1, type: '총력전', name: 'S1', start: null, end: null },
+      { id: 2, type: '총력전', name: 'S2', start: '2026-02-01', end: '2026-02-28' },
+    ];
+    expect(endedSeasons(s).map((x) => x.id)).toEqual([1, 2]);
   });
 });
 
