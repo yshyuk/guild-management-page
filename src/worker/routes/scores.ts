@@ -1,18 +1,30 @@
 import { Hono } from 'hono';
 import { and, eq } from 'drizzle-orm';
 import { getDb } from '../db/client';
-import { scores } from '../db/schema';
+import { scores, scoreSeasons } from '../db/schema';
 import type { AppEnv } from '../types';
 
 const app = new Hono<AppEnv>();
 
 app.get('/', async (c) => {
-  const seasonId = Number(c.req.query('seasonId'));
-  if (Number.isNaN(seasonId)) return c.json({ error: 'seasonId is required' }, 400);
-
   const db = getDb(c.env.DB);
+  const type = c.req.query('type');
+
+  // 타입의 전 시즌 점수 (전체 시즌추이 그래프용)
+  if (type) {
+    const rows = await db
+      .select({ seasonId: scores.seasonId, memberId: scores.memberId, score: scores.score })
+      .from(scores)
+      .innerJoin(scoreSeasons, eq(scores.seasonId, scoreSeasons.id))
+      .where(eq(scoreSeasons.type, type));
+    return c.json(rows);
+  }
+
+  // 단일 시즌 점수
+  const seasonId = Number(c.req.query('seasonId'));
+  if (Number.isNaN(seasonId)) return c.json({ error: 'seasonId or type is required' }, 400);
   const rows = await db
-    .select({ memberId: scores.memberId, round: scores.round, score: scores.score })
+    .select({ memberId: scores.memberId, score: scores.score })
     .from(scores)
     .where(eq(scores.seasonId, seasonId));
   return c.json(rows);
@@ -23,24 +35,15 @@ app.put('/', async (c) => {
   const body = await c.req.json<{
     seasonId?: number;
     memberId?: number;
-    round?: number;
     score?: number | null;
   }>();
 
-  if (
-    typeof body.seasonId !== 'number' ||
-    typeof body.memberId !== 'number' ||
-    typeof body.round !== 'number'
-  ) {
-    return c.json({ error: 'seasonId, memberId, round are required' }, 400);
+  if (typeof body.seasonId !== 'number' || typeof body.memberId !== 'number') {
+    return c.json({ error: 'seasonId and memberId are required' }, 400);
   }
 
   const db = getDb(c.env.DB);
-  const cell = and(
-    eq(scores.seasonId, body.seasonId),
-    eq(scores.memberId, body.memberId),
-    eq(scores.round, body.round),
-  );
+  const cell = and(eq(scores.seasonId, body.seasonId), eq(scores.memberId, body.memberId));
 
   if (body.score === null || body.score === undefined || Number.isNaN(body.score)) {
     await db.delete(scores).where(cell);
@@ -49,29 +52,12 @@ app.put('/', async (c) => {
 
   await db
     .insert(scores)
-    .values({
-      seasonId: body.seasonId,
-      memberId: body.memberId,
-      round: body.round,
-      score: body.score,
-    })
+    .values({ seasonId: body.seasonId, memberId: body.memberId, score: body.score })
     .onConflictDoUpdate({
-      target: [scores.seasonId, scores.memberId, scores.round],
+      target: [scores.seasonId, scores.memberId],
       set: { score: body.score },
     });
 
-  return c.json({ success: true });
-});
-
-// 차수(열) 삭제 시 해당 차수의 모든 점수 제거.
-app.delete('/round', async (c) => {
-  const seasonId = Number(c.req.query('seasonId'));
-  const round = Number(c.req.query('round'));
-  if (Number.isNaN(seasonId) || Number.isNaN(round)) {
-    return c.json({ error: 'seasonId and round are required' }, 400);
-  }
-  const db = getDb(c.env.DB);
-  await db.delete(scores).where(and(eq(scores.seasonId, seasonId), eq(scores.round, round)));
   return c.json({ success: true });
 });
 
