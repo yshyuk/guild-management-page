@@ -125,14 +125,15 @@ export const warnings = sqliteTable(
   (t) => [index('warnings_member_idx').on(t.memberId)],
 );
 
-// 점수 시즌 (신규) — type: 총력전 / 길드전
+// 점수 시즌 — type: 총력전 / 길드전 / 강림전. start~end 날짜 구간.
 export const scoreSeasons = sqliteTable(
   'score_seasons',
   {
     id: integer('id').primaryKey({ autoIncrement: true }),
-    type: text('type').notNull(), // '총력전' | '길드전'
+    type: text('type').notNull(),
     name: text('name').notNull(),
-    roundCount: integer('round_count').notNull().default(1), // 표시할 차수 개수
+    startDate: text('start_date').notNull(), // YYYY-MM-DD
+    endDate: text('end_date').notNull(), // YYYY-MM-DD (오늘 > end 이면 종료된 시즌)
     createdAt: text('created_at')
       .notNull()
       .default(sql`(current_timestamp)`),
@@ -140,7 +141,7 @@ export const scoreSeasons = sqliteTable(
   (t) => [index('score_seasons_type_idx').on(t.type)],
 );
 
-// 점수 (신규) — 시즌별/길드원별/차수별 점수
+// 점수 — 시즌별/길드원별 단일 점수 (차수 없음)
 export const scores = sqliteTable(
   'scores',
   {
@@ -151,14 +152,13 @@ export const scores = sqliteTable(
     memberId: integer('member_id')
       .notNull()
       .references(() => members.id, { onDelete: 'cascade' }),
-    round: integer('round').notNull(), // 차수 (1, 2, 3, ...)
     score: integer('score').notNull(),
     createdAt: text('created_at')
       .notNull()
       .default(sql`(current_timestamp)`),
   },
   (t) => [
-    uniqueIndex('scores_unique').on(t.seasonId, t.memberId, t.round),
+    uniqueIndex('scores_unique').on(t.seasonId, t.memberId),
     index('scores_season_idx').on(t.seasonId),
   ],
 );

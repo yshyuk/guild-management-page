@@ -52,11 +52,19 @@ export type ScoreSeason = {
   id: number;
   type: ScoreType;
   name: string;
-  roundCount: number;
+  start: string; // YYYY-MM-DD
+  end: string; // YYYY-MM-DD
 };
 
+// 단일 시즌 점수 (시즌당 길드원 1점수)
 export type ScoreCell = {
   memberId: number;
-  round: number;
+  score: number;
+};
+
+// 타입 전체 시즌 점수 (전체 시즌추이 그래프용)
+export type SeasonScore = {
+  seasonId: number;
+  memberId: number;
   score: number;
 };

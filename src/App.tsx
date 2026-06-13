@@ -201,6 +201,14 @@ export default function App() {
 
   const activeMembers = useMemo<Member[]>(() => sortedMembers.filter((m) => m.active), [sortedMembers]);
   const inactiveMembers = useMemo<Member[]>(() => sortedMembers.filter((m) => !m.active), [sortedMembers]);
+  const activeMemberIds = useMemo<Set<number>>(
+    () => new Set(activeMembers.map((m) => m.id)),
+    [activeMembers],
+  );
+  const dashboardWarnings = useMemo<Warning[]>(
+    () => warnings.filter((w) => activeMemberIds.has(w.memberId) && isWithin(w.date, rangeStart, rangeEnd)),
+    [warnings, activeMemberIds, rangeStart, rangeEnd],
+  );
   const filteredMembers = useMemo<Member[]>(
     () => activeMembers.filter((m) => m.name.includes(search)),
     [activeMembers, search],
@@ -841,6 +849,7 @@ export default function App() {
                         guildWarPeriods={guildWarPeriods}
                         powerWarPeriods={powerWarPeriods}
                         raidDeadlines={raidDeadlines}
+                        warnings={dashboardWarnings}
                         onCreateDate={loadNewEntry}
                         onEditLog={loadExistingEntry}
                       />
@@ -879,7 +888,7 @@ export default function App() {
                   </CardContent>
                 </Card>
 
-                <WarningPanel warnings={warnings} />
+                <WarningPanel warnings={dashboardWarnings} />
               </div>
             </div>
           </TabsContent>

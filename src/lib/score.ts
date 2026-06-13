@@ -37,34 +37,53 @@ export function deltaColorClass(delta: Delta): string {
 }
 
 // ── 점수구간(버킷) ────────────────────────────────────
-export type Bucket = { label: string; min: number; max: number; count: number };
+import type { ScoreType } from './types';
 
-// 값들을 size(기본 500) 단위 구간으로 나눠 인원수를 집계한다. 높은 구간이 위로 오도록 내림차순.
-export function bucketize(values: number[], size = 500): Bucket[] {
+export type BucketDef = { label: string; min: number; max: number }; // [min, max] 양끝 포함(정수)
+export type Bucket = BucketDef & { count: number };
+
+// 타입별 점수 구간 (내림차순: 높은 구간이 먼저). 점수는 정수이므로 inclusive 경계 사용.
+// 총력전은 비균등(5000~5980, 6000~)이라 5981~5999는 의도된 빈 구간.
+const BUCKETS: Record<ScoreType, BucketDef[]> = {
+  총력전: [
+    { label: '6000 ~', min: 6000, max: Infinity },
+    { label: '5000 ~ 5980', min: 5000, max: 5980 },
+    { label: '4000 ~ 5000', min: 4000, max: 4999 },
+    { label: '~ 4000', min: -Infinity, max: 3999 },
+  ],
+  길드전: [
+    { label: '2000 ~', min: 2000, max: Infinity },
+    { label: '1500 ~ 2000', min: 1500, max: 1999 },
+    { label: '1000 ~ 1500', min: 1000, max: 1499 },
+    { label: '500 ~ 1000', min: 500, max: 999 },
+    { label: '0 ~ 500', min: 0, max: 499 },
+  ],
+  강림전: [
+    { label: '4000만 ~', min: 40000000, max: Infinity },
+    { label: '3500만 ~ 4000만', min: 35000000, max: 39999999 },
+    { label: '3000만 ~ 3500만', min: 30000000, max: 34999999 },
+    { label: '2500만 ~ 3000만', min: 25000000, max: 29999999 },
+    { label: '2000만 ~ 2500만', min: 20000000, max: 24999999 },
+    { label: '1500만 ~ 2000만', min: 15000000, max: 19999999 },
+    { label: '1000만 ~ 1500만', min: 10000000, max: 14999999 },
+    { label: '~ 1000만', min: -Infinity, max: 9999999 },
+  ],
+};
+
+export function bucketsFor(type: ScoreType): BucketDef[] {
+  return BUCKETS[type];
+}
+
+// 값이 속한 구간. 어느 구간에도 없으면 null(총력전 5981~5999).
+export function findBucket(value: number, type: ScoreType): BucketDef | null {
+  return BUCKETS[type].find((b) => value >= b.min && value <= b.max) ?? null;
+}
+
+// 타입 구간별 인원 집계. 모든 구간을 항상 반환(0명 포함), 내림차순.
+export function bucketize(values: number[], type: ScoreType): Bucket[] {
   const nums = values.filter((v) => Number.isFinite(v));
-  if (nums.length === 0) return [];
-  const min = Math.min(...nums);
-  const max = Math.max(...nums);
-  const startBucket = Math.floor(min / size) * size;
-  const endBucket = Math.floor(max / size) * size;
-  const buckets: Bucket[] = [];
-  for (let b = endBucket; b >= startBucket; b -= size) {
-    const count = nums.filter((v) => v >= b && v < b + size).length;
-    buckets.push({
-      label: `${b.toLocaleString()} ~ ${(b + size - 1).toLocaleString()}`,
-      min: b,
-      max: b + size - 1,
-      count,
-    });
-  }
-  return buckets;
-}
-
-// 특정 점수가 속한 구간의 시작값 (size 배수)
-export function bucketStart(value: number, size = 500): number {
-  return Math.floor(value / size) * size;
-}
-
-export function bucketLabel(start: number, size = 500): string {
-  return `${start.toLocaleString()} ~ ${(start + size - 1).toLocaleString()}`;
+  return BUCKETS[type].map((b) => ({
+    ...b,
+    count: nums.filter((v) => v >= b.min && v <= b.max).length,
+  }));
 }

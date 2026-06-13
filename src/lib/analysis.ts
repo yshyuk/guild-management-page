@@ -1,45 +1,29 @@
-import type { Member, ScoreCell } from './types';
+import type { Member, ScoreSeason, SeasonScore } from './types';
 import { computeDelta, type Delta } from './score';
 
-export type ScoreIndex = {
-  // memberId -> round -> score
-  byMember: Map<number, Map<number, number>>;
-  maxRound: number;
-};
-
-export function indexScores(cells: ScoreCell[]): ScoreIndex {
-  const byMember = new Map<number, Map<number, number>>();
-  let maxRound = 0;
-  for (const cell of cells) {
-    let rounds = byMember.get(cell.memberId);
-    if (!rounds) {
-      rounds = new Map();
-      byMember.set(cell.memberId, rounds);
-    }
-    rounds.set(cell.round, cell.score);
-    if (cell.round > maxRound) maxRound = cell.round;
-  }
-  return { byMember, maxRound };
+// 단일 시즌: memberId -> score
+export function toScoreMap(cells: { memberId: number; score: number }[]): Map<number, number> {
+  const m = new Map<number, number>();
+  for (const c of cells) m.set(c.memberId, c.score);
+  return m;
 }
 
-export function scoreAt(index: ScoreIndex, memberId: number, round: number): number | null {
-  const v = index.byMember.get(memberId)?.get(round);
-  return v === undefined ? null : v;
+// 시즌 정렬: 종료일 오름차순, id 보조
+export function sortSeasons(seasons: ScoreSeason[]): ScoreSeason[] {
+  return [...seasons].sort((a, b) => a.end.localeCompare(b.end) || a.id - b.id);
 }
 
-// 특정 차수까지 입력된 가장 마지막(가장 높은 차수) 점수를 반환
-export function latestScore(
-  index: ScoreIndex,
-  memberId: number,
-  uptoRound: number,
-): { round: number; score: number } | null {
-  const rounds = index.byMember.get(memberId);
-  if (!rounds) return null;
-  for (let r = uptoRound; r >= 1; r -= 1) {
-    const s = rounds.get(r);
-    if (s !== undefined) return { round: r, score: s };
-  }
-  return null;
+// 직전 시즌 (정렬 기준 바로 앞). 첫 시즌이면 null.
+export function prevSeason(seasons: ScoreSeason[], currentId: number): ScoreSeason | null {
+  const sorted = sortSeasons(seasons);
+  const idx = sorted.findIndex((s) => s.id === currentId);
+  if (idx <= 0) return null;
+  return sorted[idx - 1];
+}
+
+// 종료된 시즌만 (오늘 > 종료일), 종료일 오름차순
+export function endedSeasons(seasons: ScoreSeason[], today: string): ScoreSeason[] {
+  return sortSeasons(seasons).filter((s) => s.end < today);
 }
 
 export type RankRow = {
@@ -47,44 +31,66 @@ export type RankRow = {
   memberId: number;
   name: string;
   score: number;
-  round: number;
   delta: Delta;
 };
 
-// 지정한 차수 기준 순위표. 해당 차수에 점수가 없으면 그 이전 마지막 점수를 사용.
-export function buildRanking(
+// 선택 시즌 순위 + 직전 시즌 대비 변동
+export function buildSeasonRanking(
   members: Member[],
-  index: ScoreIndex,
-  round: number,
+  current: Map<number, number>,
+  prev: Map<number, number> | null,
 ): RankRow[] {
   const rows = members
     .map((m) => {
-      const latest = latestScore(index, m.id, round);
-      if (!latest) return null;
-      const prev = latest.round > 1 ? scoreAt(index, m.id, latest.round - 1) : null;
+      const score = current.get(m.id);
+      if (score === undefined) return null;
+      const prevScore = prev?.get(m.id);
       return {
         memberId: m.id,
         name: m.name,
-        score: latest.score,
-        round: latest.round,
-        delta: computeDelta(latest.score, prev),
+        score,
+        delta: computeDelta(score, prevScore ?? null),
       };
     })
     .filter((r): r is Omit<RankRow, 'rank'> => r !== null)
     .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name, 'ko'));
-
   return rows.map((r, i) => ({ ...r, rank: i + 1 }));
 }
 
-// recharts 멀티라인용 데이터: [{ round: '1차', [name]: score, ... }, ...]
-export function buildChartData(
+// 단일 시즌 막대그래프 데이터 (점수 내림차순)
+export function buildSingleSeasonBars(
   members: Member[],
-  index: ScoreIndex,
-): Array<Record<string, number | string | null>> {
-  const rounds = Array.from({ length: index.maxRound }, (_, i) => i + 1);
-  return rounds.map((r) => {
-    const row: Record<string, number | string | null> = { round: `${r}차` };
-    for (const m of members) row[m.name] = scoreAt(index, m.id, r);
+  current: Map<number, number>,
+): Array<{ name: string; score: number }> {
+  return members
+    .map((m) => {
+      const score = current.get(m.id);
+      return score === undefined ? null : { name: m.name, score };
+    })
+    .filter((r): r is { name: string; score: number } => r !== null)
+    .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name, 'ko'));
+}
+
+// 전체 시즌추이 꺾은선 데이터: [{ season: name, [memberName]: score|null }]
+// seasons 인자는 종료된 시즌(정렬됨)을 넘긴다.
+export function buildTrendData(
+  members: Member[],
+  allScores: SeasonScore[],
+  seasons: ScoreSeason[],
+): Array<Record<string, string | number | null>> {
+  const bySeason = new Map<number, Map<number, number>>();
+  for (const s of allScores) {
+    let mm = bySeason.get(s.seasonId);
+    if (!mm) {
+      mm = new Map();
+      bySeason.set(s.seasonId, mm);
+    }
+    mm.set(s.memberId, s.score);
+  }
+  return seasons.map((season) => {
+    const row: Record<string, string | number | null> = { season: season.name };
+    const mm = bySeason.get(season.id);
+    for (const m of members) row[m.name] = mm?.get(m.id) ?? null;
     return row;
   });
 }
