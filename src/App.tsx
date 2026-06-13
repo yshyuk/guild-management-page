@@ -849,6 +849,7 @@ export default function App() {
                         guildWarPeriods={guildWarPeriods}
                         powerWarPeriods={powerWarPeriods}
                         raidDeadlines={raidDeadlines}
+                        warnings={dashboardWarnings}
                         onCreateDate={loadNewEntry}
                         onEditLog={loadExistingEntry}
                       />

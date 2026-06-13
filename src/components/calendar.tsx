@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react';
 import {
   Card,
   CardContent,
@@ -16,7 +16,7 @@ import {
   isWithin,
   buildRangeGrid,
 } from '@/lib/dates';
-import type { ContentType, GuildWarPeriod, MissLog, RaidDeadline } from '@/lib/types';
+import type { ContentType, GuildWarPeriod, MissLog, RaidDeadline, Warning } from '@/lib/types';
 
 const contentStyle: Record<ContentType, string> = {
   길드전: 'bg-pink-100 text-pink-900 border-pink-200',
@@ -66,6 +66,7 @@ type DayCellProps = {
   guildWarPeriods: GuildWarPeriod[];
   powerWarPeriods: GuildWarPeriod[];
   raidDeadlines: RaidDeadline[];
+  warnings: Warning[];
   onCreateDate: (dateStr: string) => void;
   onEditLog: (log: MissLog) => void;
 };
@@ -78,6 +79,7 @@ export function DayCell({
   guildWarPeriods,
   powerWarPeriods,
   raidDeadlines,
+  warnings,
   onCreateDate,
   onEditLog,
 }: DayCellProps) {
@@ -87,6 +89,7 @@ export function DayCell({
   const guildWar = guildWarPeriods.some((period) => isWithin(dateStr, period.start, period.end));
   const powerWar = powerWarPeriods.some((period) => isWithin(dateStr, period.start, period.end));
   const raidDay = raidDeadlines.some((item) => item.date === dateStr);
+  const dayWarnings = warnings.filter((w) => w.date === dateStr);
   const dayOfWeek = day.getDay();
   const dayColor =
     dayOfWeek === 0 ? 'text-rose-400' : dayOfWeek === 6 ? 'text-sky-400' : 'text-zinc-700';
@@ -120,10 +123,19 @@ export function DayCell({
         raidDay ? 'bg-zinc-100/90' : '',
       ].join(' ')}
     >
-      <div className="h-5 shrink-0 sm:h-6">
+      <div className="flex h-5 shrink-0 items-start justify-between sm:h-6">
         <div className={`text-xs font-semibold leading-5 sm:text-sm sm:leading-6 ${dayColor}`}>
           {day.getMonth() + 1}/{day.getDate()}
         </div>
+        {dayWarnings.length > 0 && (
+          <span
+            className="inline-flex items-center gap-0.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700"
+            title={dayWarnings.map((w) => w.memberName).join(', ')}
+          >
+            <AlertTriangle className="h-3 w-3" />
+            {dayWarnings.length}
+          </span>
+        )}
       </div>
 
       <div className="mt-2 flex-1 space-y-1 sm:mt-3 sm:space-y-1.5">
