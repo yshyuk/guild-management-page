@@ -9,6 +9,15 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
+import type { PeriodKind } from '@/lib/periodMark';
+import {
   weekLabels,
   formatDate,
   displayDate,
@@ -69,6 +78,8 @@ type DayCellProps = {
   warnings: Warning[];
   onCreateDate: (dateStr: string) => void;
   onEditLog: (log: MissLog) => void;
+  onPeriodMark: (kind: PeriodKind, edge: 'start' | 'end', dateStr: string) => void;
+  markedDate: string | null;
 };
 
 export function DayCell({
@@ -82,6 +93,8 @@ export function DayCell({
   warnings,
   onCreateDate,
   onEditLog,
+  onPeriodMark,
+  markedDate,
 }: DayCellProps) {
   const dateStr = formatDate(day);
   const inSelectedRange = isWithin(dateStr, rangeStart, rangeEnd);
@@ -99,18 +112,12 @@ export function DayCell({
     onCreateDate(dateStr);
   };
 
-  return (
+  const marked = markedDate !== null && dateStr === markedDate;
+
+  const cell = (
     <div
       role="button"
       tabIndex={inSelectedRange ? 0 : -1}
-      onClick={handleCreate}
-      onKeyDown={(e: React.KeyboardEvent<HTMLDivElement>) => {
-        if (!inSelectedRange) return;
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          handleCreate();
-        }
-      }}
       className={[
         'relative flex min-h-[110px] w-full flex-col rounded-2xl border p-2 text-left transition sm:min-h-[140px] sm:p-3 md:min-h-[180px]',
         inSelectedRange ? 'cursor-pointer bg-white hover:shadow-sm' : 'bg-zinc-50 text-zinc-400 opacity-65',
@@ -121,6 +128,7 @@ export function DayCell({
             ? 'border-amber-400 border-2'
             : 'border-zinc-200',
         raidDay ? 'bg-zinc-100/90' : '',
+        marked ? 'ring-2 ring-zinc-400' : '',
       ].join(' ')}
     >
       <div className="flex h-5 shrink-0 items-start justify-between sm:h-6">
@@ -157,6 +165,29 @@ export function DayCell({
         </div>
       </div>
     </div>
+  );
+
+  if (!inSelectedRange) return cell;
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>{cell}</DropdownMenuTrigger>
+      <DropdownMenuContent align="start">
+        <DropdownMenuLabel>길드전</DropdownMenuLabel>
+        <DropdownMenuItem onSelect={() => onPeriodMark('guild', 'start', dateStr)}>길드전 시작</DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => onPeriodMark('guild', 'end', dateStr)}>길드전 종료</DropdownMenuItem>
+        <DropdownMenuLabel>강림전</DropdownMenuLabel>
+        <DropdownMenuItem onSelect={() => onPeriodMark('raid', 'start', dateStr)}>강림전 시작</DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => onPeriodMark('raid', 'end', dateStr)}>강림전 종료</DropdownMenuItem>
+        <DropdownMenuLabel>총력전</DropdownMenuLabel>
+        <DropdownMenuItem onSelect={() => onPeriodMark('power', 'start', dateStr)}>총력전 시작</DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => onPeriodMark('power', 'end', dateStr)}>총력전 종료</DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={() => handleCreate()} className="text-blue-600 font-medium">
+          입력 화면 이동
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 

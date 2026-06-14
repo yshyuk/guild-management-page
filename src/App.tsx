@@ -61,10 +61,13 @@ import type {
   RaidPeriod,
   Warning,
 } from '@/lib/types';
+import { applyMark, type PeriodKind, type PendingMark } from '@/lib/periodMark';
 
 type TabValue = 'dashboard' | 'input' | 'score' | 'stats' | 'manage';
 
 const contentOptions: ContentType[] = ['길드전', '공성전', '강림원정대'];
+
+const kindLabel = (kind: PeriodKind) => (kind === 'guild' ? '길드전' : kind === 'power' ? '총력전' : '강림전');
 
 export default function App() {
   const today = formatDate(new Date());
@@ -102,6 +105,7 @@ export default function App() {
   const [editingMemberId, setEditingMemberId] = useState<number | null>(null);
   const [editingMemberName, setEditingMemberName] = useState<string>('');
   const [hasLoadedSavedRange, setHasLoadedSavedRange] = useState<boolean>(false);
+  const [pendingMark, setPendingMark] = useState<PendingMark | null>(null);
 
   useEffect(() => {
     fetch('/api/members', { cache: 'no-store' })
@@ -520,6 +524,32 @@ export default function App() {
     setRangeEnd(target.end);
   };
 
+  const createPeriodByKind = async (kind: PeriodKind, start: string, end: string) => {
+    const endpoint =
+      kind === 'guild' ? '/api/guild-war-periods' : kind === 'power' ? '/api/power-war-periods' : '/api/raid-deadlines';
+    try {
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ start, end }),
+      });
+      if (!res.ok) throw new Error(`Failed to create ${kind} period`);
+      const created = (await res.json()) as GuildWarPeriod;
+      const sorted = (prev: GuildWarPeriod[]) => sortByDate([...prev, created], 'start');
+      if (kind === 'guild') setGuildWarPeriods(sorted);
+      else if (kind === 'power') setPowerWarPeriods(sorted);
+      else setRaidDeadlines(sorted);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const handlePeriodMark = (kind: PeriodKind, edge: 'start' | 'end', dateStr: string) => {
+    const { pending, completed } = applyMark(pendingMark, kind, edge, dateStr);
+    setPendingMark(pending);
+    if (completed) void createPeriodByKind(completed.kind, completed.start, completed.end);
+  };
+
   const saveGuildWarPeriod = async () => {
     if (!guildWarDraftStart || !guildWarDraftEnd) return;
     try {
@@ -810,6 +840,17 @@ export default function App() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4 overflow-x-auto">
+                  {pendingMark && (
+                    <div className="mb-3 flex items-center justify-between gap-2 rounded-2xl border border-zinc-300 bg-amber-50 px-4 py-2 text-sm">
+                      <span className="text-zinc-700">
+                        {kindLabel(pendingMark.kind)} {pendingMark.start ? '시작' : '종료'}{' '}
+                        <strong>{displayDate(pendingMark.start ?? pendingMark.end ?? '')}</strong> 선택됨 — 나머지 날짜 칸을 선택하세요.
+                      </span>
+                      <Button variant="outline" size="sm" className="rounded-xl" onClick={() => setPendingMark(null)}>
+                        취소
+                      </Button>
+                    </div>
+                  )}
                   <div className="grid min-w-0 grid-cols-7 gap-1.5 sm:min-w-[720px] sm:gap-2 md:min-w-[840px] xl:min-w-0 xl:gap-3">
                     {weekLabels.map((label, idx) => {
                       const color = idx === 0 ? 'text-rose-400' : idx === 6 ? 'text-sky-400' : 'text-zinc-500';
@@ -832,6 +873,8 @@ export default function App() {
                         warnings={dashboardWarnings}
                         onCreateDate={loadNewEntry}
                         onEditLog={loadExistingEntry}
+                        onPeriodMark={handlePeriodMark}
+                        markedDate={pendingMark ? (pendingMark.start ?? pendingMark.end ?? null) : null}
                       />
                     ))}
                   </div>
