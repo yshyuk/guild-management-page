@@ -324,6 +324,7 @@ export default function ScoreBoard({ type, members }: Props) {
 
             {view === 'chart' ? (
               <ScoreChart
+                type={type}
                 members={members}
                 seasons={seasons}
                 selectedSeasonId={selectedSeasonId}
