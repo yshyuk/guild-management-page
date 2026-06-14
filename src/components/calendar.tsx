@@ -116,7 +116,7 @@ export function DayCell({
 
   const cell = (
     <div
-      role="button"
+      role={inSelectedRange ? 'button' : undefined}
       tabIndex={inSelectedRange ? 0 : -1}
       className={[
         'relative flex min-h-[110px] w-full flex-col rounded-2xl border p-2 text-left transition sm:min-h-[140px] sm:p-3 md:min-h-[180px]',

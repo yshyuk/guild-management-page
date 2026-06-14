@@ -524,7 +524,7 @@ export default function App() {
     setRangeEnd(target.end);
   };
 
-  const createPeriodByKind = async (kind: PeriodKind, start: string, end: string) => {
+  const createPeriodByKind = async (kind: PeriodKind, start: string, end: string): Promise<boolean> => {
     const endpoint =
       kind === 'guild' ? '/api/guild-war-periods' : kind === 'power' ? '/api/power-war-periods' : '/api/raid-deadlines';
     try {
@@ -544,15 +544,22 @@ export default function App() {
         const created = (await res.json()) as RaidPeriod;
         setRaidDeadlines((prev) => sortByDate([...prev, created], 'start'));
       }
+      return true;
     } catch (error) {
       console.error(error);
+      return false;
     }
   };
 
-  const handlePeriodMark = (kind: PeriodKind, edge: 'start' | 'end', dateStr: string) => {
-    const { pending, completed } = applyMark(pendingMark, kind, edge, dateStr);
+  const handlePeriodMark = async (kind: PeriodKind, edge: 'start' | 'end', dateStr: string) => {
+    const prev = pendingMark;
+    const { pending, completed } = applyMark(prev, kind, edge, dateStr);
     setPendingMark(pending);
-    if (completed) void createPeriodByKind(completed.kind, completed.start, completed.end);
+    if (completed) {
+      const ok = await createPeriodByKind(completed.kind, completed.start, completed.end);
+      // 생성 실패 시 직전 페어링 상태를 복원해 배너를 남기고 재시도 가능하게 함
+      if (!ok) setPendingMark(prev);
+    }
   };
 
   const saveGuildWarPeriod = async () => {
