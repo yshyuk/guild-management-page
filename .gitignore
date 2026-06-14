@@ -6,3 +6,6 @@ dist/
 *.local
 .DS_Store
 ._resources/
+
+# brainstorming visual companion
+.superpowers/
