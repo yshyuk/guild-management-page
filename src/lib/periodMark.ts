@@ -13,11 +13,12 @@ export function applyMark(
   date: string,
 ): MarkResult {
   // 다른 kind면 새로 시작
-  const base: PendingMark = current && current.kind === kind ? { ...current } : { kind };
-  base[edge] = date;
+  const base: PendingMark =
+    current?.kind === kind ? { ...current, [edge]: date } : { kind, [edge]: date };
 
   if (base.start && base.end) {
-    let { start, end } = base;
+    let start = base.start;
+    let end = base.end;
     if (start > end) [start, end] = [end, start];
     return { pending: null, completed: { kind, start, end } };
   }
