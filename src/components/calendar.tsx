@@ -16,7 +16,7 @@ import {
   isWithin,
   buildRangeGrid,
 } from '@/lib/dates';
-import type { ContentType, GuildWarPeriod, MissLog, RaidDeadline, Warning } from '@/lib/types';
+import type { ContentType, GuildWarPeriod, MissLog, RaidPeriod, Warning } from '@/lib/types';
 
 const contentStyle: Record<ContentType, string> = {
   길드전: 'bg-pink-100 text-pink-900 border-pink-200',
@@ -65,7 +65,7 @@ type DayCellProps = {
   logs: MissLog[];
   guildWarPeriods: GuildWarPeriod[];
   powerWarPeriods: GuildWarPeriod[];
-  raidDeadlines: RaidDeadline[];
+  raidDeadlines: RaidPeriod[];
   warnings: Warning[];
   onCreateDate: (dateStr: string) => void;
   onEditLog: (log: MissLog) => void;
@@ -88,7 +88,7 @@ export function DayCell({
   const dayLogs = logs.filter((log) => log.date === dateStr);
   const guildWar = guildWarPeriods.some((period) => isWithin(dateStr, period.start, period.end));
   const powerWar = powerWarPeriods.some((period) => isWithin(dateStr, period.start, period.end));
-  const raidDay = raidDeadlines.some((item) => item.date === dateStr);
+  const raidDay = raidDeadlines.some((period) => isWithin(dateStr, period.start, period.end));
   const dayWarnings = warnings.filter((w) => w.date === dateStr);
   const dayOfWeek = day.getDay();
   const dayColor =
@@ -168,10 +168,9 @@ type PeriodCalendarProps = {
   onNextMonth: () => void;
   rangeStart: string;
   rangeEnd: string;
-  items: GuildWarPeriod[] | RaidDeadline[];
-  type: 'period' | 'date';
+  items: GuildWarPeriod[];
   selectedId: number | null;
-  onSelect: (item: GuildWarPeriod | RaidDeadline) => void;
+  onSelect: (item: GuildWarPeriod) => void;
 };
 
 export function PeriodCalendar({
@@ -183,7 +182,6 @@ export function PeriodCalendar({
   rangeStart,
   rangeEnd,
   items,
-  type,
   selectedId,
   onSelect,
 }: PeriodCalendarProps) {
@@ -226,10 +224,7 @@ export function PeriodCalendar({
           {gridDays.map((day) => {
             const dateStr = formatDate(day);
             const inSelectedRange = isWithin(dateStr, rangeStart, rangeEnd);
-            const hit =
-              type === 'period'
-                ? (items as GuildWarPeriod[]).find((item) => isWithin(dateStr, item.start, item.end))
-                : (items as RaidDeadline[]).find((item) => item.date === dateStr);
+            const hit = items.find((item) => isWithin(dateStr, item.start, item.end));
             const dayOfWeek = day.getDay();
             const dayColor =
               dayOfWeek === 0 ? 'text-rose-400' : dayOfWeek === 6 ? 'text-sky-400' : 'text-zinc-700';
@@ -251,9 +246,7 @@ export function PeriodCalendar({
                 </div>
                 {hit && (
                   <div className="mt-2 rounded-lg bg-zinc-900 px-2 py-1 text-[11px] text-white">
-                    {type === 'period'
-                      ? `${displayDate((hit as GuildWarPeriod).start)} ~ ${displayDate((hit as GuildWarPeriod).end)}`
-                      : displayDate((hit as RaidDeadline).date)}
+                    {displayDate(hit.start)} ~ {displayDate(hit.end)}
                   </div>
                 )}
               </button>

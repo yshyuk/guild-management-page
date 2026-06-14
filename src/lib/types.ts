@@ -20,9 +20,10 @@ export type GuildWarPeriod = {
   end: string;
 };
 
-export type RaidDeadline = {
+export type RaidPeriod = {
   id: number;
-  date: string;
+  start: string;
+  end: string;
 };
 
 export type DashboardRangeSettings = {

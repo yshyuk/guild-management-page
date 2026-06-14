@@ -83,17 +83,21 @@ export const powerWarPeriods = sqliteTable(
   ],
 );
 
-// 강림원정대 마감일
+// 강림원정대 기간 (길드전/총력전 기간과 동일 구조)
 export const raidDeadlines = sqliteTable(
   'raid_deadlines',
   {
     id: integer('id').primaryKey({ autoIncrement: true }),
-    date: text('date').notNull().unique(), // YYYY-MM-DD
+    startDate: text('start_date').notNull(), // YYYY-MM-DD
+    endDate: text('end_date').notNull(),
     createdAt: text('created_at')
       .notNull()
       .default(sql`(current_timestamp)`),
   },
-  (t) => [index('raid_deadlines_date_idx').on(t.date)],
+  (t) => [
+    index('raid_deadlines_start_idx').on(t.startDate),
+    index('raid_deadlines_end_idx').on(t.endDate),
+  ],
 );
 
 // 현황판 기간 설정 (단일 행, id='global')

@@ -46,7 +46,6 @@ import {
   getMonthRange,
   getActiveOrPreviousGuildWarPeriod,
   getNextGuildWarPeriod,
-  getNextRaidSunday,
   isWithin,
   shiftCustomRange,
   shiftMonth,
@@ -59,7 +58,7 @@ import type {
   Member,
   MemberStat,
   MissLog,
-  RaidDeadline,
+  RaidPeriod,
   Warning,
 } from '@/lib/types';
 
@@ -86,14 +85,15 @@ export default function App() {
   const [search, setSearch] = useState<string>('');
   const [guildWarPeriods, setGuildWarPeriods] = useState<GuildWarPeriod[]>([]);
   const [powerWarPeriods, setPowerWarPeriods] = useState<GuildWarPeriod[]>([]);
-  const [raidDeadlines, setRaidDeadlines] = useState<RaidDeadline[]>([]);
+  const [raidDeadlines, setRaidDeadlines] = useState<RaidPeriod[]>([]);
   const [guildWarDraftStart, setGuildWarDraftStart] = useState<string>(today);
   const [guildWarDraftEnd, setGuildWarDraftEnd] = useState<string>(today);
   const [editingGuildWarId, setEditingGuildWarId] = useState<number | null>(null);
   const [powerWarDraftStart, setPowerWarDraftStart] = useState<string>(today);
   const [powerWarDraftEnd, setPowerWarDraftEnd] = useState<string>(today);
   const [editingPowerWarId, setEditingPowerWarId] = useState<number | null>(null);
-  const [raidDraftDate, setRaidDraftDate] = useState<string>(today);
+  const [raidDraftStart, setRaidDraftStart] = useState<string>(today);
+  const [raidDraftEnd, setRaidDraftEnd] = useState<string>(today);
   const [editingRaidId, setEditingRaidId] = useState<number | null>(null);
   const [guildWarCalendarBase, setGuildWarCalendarBase] = useState<string>(today);
   const [powerWarCalendarBase, setPowerWarCalendarBase] = useState<string>(today);
@@ -177,7 +177,7 @@ export default function App() {
   useEffect(() => {
     fetch('/api/raid-deadlines', { cache: 'no-store' })
       .then((res) => (res.ok ? res.json() : Promise.reject()))
-      .then((data: RaidDeadline[]) => setRaidDeadlines(data))
+      .then((data: RaidPeriod[]) => setRaidDeadlines(data))
       .catch(console.error);
   }, []);
 
@@ -550,8 +550,7 @@ export default function App() {
     }
   };
 
-  const selectGuildWarPeriod = (item: GuildWarPeriod | RaidDeadline) => {
-    if (!('start' in item)) return;
+  const selectGuildWarPeriod = (item: GuildWarPeriod) => {
     setEditingGuildWarId(item.id);
     setGuildWarDraftStart(item.start);
     setGuildWarDraftEnd(item.end);
@@ -622,8 +621,7 @@ export default function App() {
     }
   };
 
-  const selectPowerWarPeriod = (item: GuildWarPeriod | RaidDeadline) => {
-    if (!('start' in item)) return;
+  const selectPowerWarPeriod = (item: GuildWarPeriod) => {
     setEditingPowerWarId(item.id);
     setPowerWarDraftStart(item.start);
     setPowerWarDraftEnd(item.end);
@@ -664,26 +662,26 @@ export default function App() {
   };
 
   const saveRaidDeadline = async () => {
-    if (!raidDraftDate) return;
+    if (!raidDraftStart || !raidDraftEnd) return;
     try {
       if (editingRaidId) {
         const res = await fetch(`/api/raid-deadlines/${editingRaidId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ date: raidDraftDate }),
+          body: JSON.stringify({ start: raidDraftStart, end: raidDraftEnd }),
         });
-        if (!res.ok) throw new Error('Failed to update raid deadline');
-        const updated = (await res.json()) as RaidDeadline;
-        setRaidDeadlines((prev) => sortByDate(prev.map((i) => (i.id === updated.id ? updated : i)), 'date'));
+        if (!res.ok) throw new Error('Failed to update raid period');
+        const updated = (await res.json()) as RaidPeriod;
+        setRaidDeadlines((prev) => sortByDate(prev.map((i) => (i.id === updated.id ? updated : i)), 'start'));
       } else {
         const res = await fetch('/api/raid-deadlines', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ date: raidDraftDate }),
+          body: JSON.stringify({ start: raidDraftStart, end: raidDraftEnd }),
         });
-        if (!res.ok) throw new Error('Failed to create raid deadline');
-        const created = (await res.json()) as RaidDeadline;
-        setRaidDeadlines((prev) => sortByDate([...prev, created], 'date'));
+        if (!res.ok) throw new Error('Failed to create raid period');
+        const created = (await res.json()) as RaidPeriod;
+        setRaidDeadlines((prev) => sortByDate([...prev, created], 'start'));
       }
       setEditingRaidId(null);
     } catch (error) {
@@ -691,10 +689,10 @@ export default function App() {
     }
   };
 
-  const selectRaidDeadline = (item: GuildWarPeriod | RaidDeadline) => {
-    if (!('date' in item)) return;
+  const selectRaidDeadline = (item: RaidPeriod) => {
     setEditingRaidId(item.id);
-    setRaidDraftDate(item.date);
+    setRaidDraftStart(item.start);
+    setRaidDraftEnd(item.end);
   };
 
   const deleteRaidDeadline = async () => {
@@ -704,26 +702,8 @@ export default function App() {
       if (!res.ok) throw new Error('Failed to delete raid deadline');
       setRaidDeadlines((prev) => prev.filter((i) => i.id !== editingRaidId));
       setEditingRaidId(null);
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
-  const autoAddNextRaidDeadline = async () => {
-    const latest = [...raidDeadlines].sort((a, b) => a.date.localeCompare(b.date)).at(-1);
-    const baseDate = latest ? latest.date : today;
-    const nextDate = getNextRaidSunday(baseDate);
-    try {
-      const res = await fetch('/api/raid-deadlines', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ date: nextDate }),
-      });
-      if (!res.ok) throw new Error('Failed to create next raid deadline');
-      const created = (await res.json()) as RaidDeadline;
-      setRaidDraftDate(created.date);
-      setEditingRaidId(null);
-      setRaidDeadlines((prev) => sortByDate([...prev, created], 'date'));
+      setRaidDraftStart(rangeStart);
+      setRaidDraftEnd(rangeEnd);
     } catch (error) {
       console.error(error);
     }
@@ -804,7 +784,7 @@ export default function App() {
                       노란 테두리
                     </div>
                     <div className="hidden rounded-2xl border border-zinc-200 bg-zinc-100/90 px-4 py-3 text-sm text-zinc-700 md:block">
-                      <div className="font-medium text-zinc-800">강림 마감일</div>
+                      <div className="font-medium text-zinc-800">강림전 시즌</div>
                       회색 음영
                     </div>
                     <div className="space-y-2">
@@ -1064,7 +1044,6 @@ export default function App() {
                       rangeStart={powerWarCalendarRange.start}
                       rangeEnd={powerWarCalendarRange.end}
                       items={powerWarPeriods}
-                      type="period"
                       selectedId={editingPowerWarId}
                       onSelect={selectPowerWarPeriod}
                     />
@@ -1101,7 +1080,6 @@ export default function App() {
                       rangeStart={guildWarCalendarRange.start}
                       rangeEnd={guildWarCalendarRange.end}
                       items={guildWarPeriods}
-                      type="period"
                       selectedId={editingGuildWarId}
                       onSelect={selectGuildWarPeriod}
                     />
@@ -1110,28 +1088,30 @@ export default function App() {
 
                 <Card className="rounded-[28px] border-0 shadow-sm">
                   <CardHeader>
-                    <CardTitle className="text-xl">강림원정대 마감일 설정</CardTitle>
+                    <CardTitle className="text-xl">강림원정대 기간 설정</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="grid gap-3 md:grid-cols-[1fr_auto_auto_auto] md:items-end">
+                    <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto_auto] md:items-end">
                       <div className="space-y-2">
-                        <label className="text-sm font-medium">마감일</label>
-                        <Input type="date" value={raidDraftDate} onChange={(e) => setRaidDraftDate(e.target.value)} className="rounded-2xl" />
+                        <label className="text-sm font-medium">시작일</label>
+                        <Input type="date" value={raidDraftStart} onChange={(e) => setRaidDraftStart(e.target.value)} className="rounded-2xl" />
                       </div>
-                      <Button className="rounded-2xl" onClick={saveRaidDeadline}>{editingRaidId ? '수정 저장' : '마감일 추가'}</Button>
-                      <Button variant="outline" className="rounded-2xl" onClick={autoAddNextRaidDeadline}><Wand2 className="mr-2 h-4 w-4" />다음 마감일 자동</Button>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">종료일</label>
+                        <Input type="date" value={raidDraftEnd} min={raidDraftStart} onChange={(e) => setRaidDraftEnd(e.target.value)} className="rounded-2xl" />
+                      </div>
+                      <Button className="rounded-2xl" onClick={saveRaidDeadline}>{editingRaidId ? '수정 저장' : '기간 추가'}</Button>
                       <Button variant="outline" className="rounded-2xl" onClick={deleteRaidDeadline} disabled={!editingRaidId}><Trash2 className="mr-2 h-4 w-4" />삭제</Button>
                     </div>
                     <PeriodCalendar
-                      title="마감일 달력"
-                      description="표시된 마감일을 누르면 위 입력칸에 반영됩니다."
+                      title="시즌 달력"
+                      description="표시된 시즌을 누르면 위 입력칸에 반영됩니다."
                       baseDate={raidCalendarBase}
                       onPrevMonth={() => setRaidCalendarBase(shiftMonth(raidCalendarBase, -1))}
                       onNextMonth={() => setRaidCalendarBase(shiftMonth(raidCalendarBase, 1))}
                       rangeStart={raidCalendarRange.start}
                       rangeEnd={raidCalendarRange.end}
                       items={raidDeadlines}
-                      type="date"
                       selectedId={editingRaidId}
                       onSelect={selectRaidDeadline}
                     />
