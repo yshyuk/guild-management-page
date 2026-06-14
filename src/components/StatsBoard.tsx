@@ -17,7 +17,8 @@ import {
 } from '@/components/ui/select';
 import { api } from '@/lib/api';
 import { bucketize, findBucket, deltaText, deltaColorClass } from '@/lib/score';
-import { toScoreMap, prevSeason, sortSeasons, buildSeasonRanking } from '@/lib/analysis';
+import { toScoreMap, prevSeason, sortSeasons, buildSeasonRanking, latestSettledSeason } from '@/lib/analysis';
+import { formatDate } from '@/lib/dates';
 import type { Member, ScoreSeason, ScoreType, SeasonScore } from '@/lib/types';
 
 type Props = {
@@ -99,11 +100,14 @@ export default function StatsBoard({ type, members }: Props) {
   const buckets = useMemo(() => bucketize(ranking.map((r) => r.score), type), [ranking, type]);
   const maxBucketCount = Math.max(1, ...buckets.map((b) => b.count));
 
+  // 비교 기준: 직전 완료(종료일이 오늘 이전) 총력전 시즌
+  const today = formatDate(new Date());
+  const settledPowerSeason = useMemo(() => latestSettledSeason(powerSeasons, today), [powerSeasons, today]);
+
   const powerMap = useMemo(() => {
-    const latest = sortSeasons(powerSeasons).at(-1);
-    if (!latest) return new Map<number, number>();
-    return toScoreMap(powerAllScores.filter((s) => s.seasonId === latest.id).map((s) => ({ memberId: s.memberId, score: s.score })));
-  }, [powerSeasons, powerAllScores]);
+    if (!settledPowerSeason) return new Map<number, number>();
+    return toScoreMap(powerAllScores.filter((s) => s.seasonId === settledPowerSeason.id).map((s) => ({ memberId: s.memberId, score: s.score })));
+  }, [settledPowerSeason, powerAllScores]);
 
   const crossDistribution = useMemo(() => {
     if (type !== '길드전' || powerMap.size === 0) return [];
@@ -237,11 +241,21 @@ export default function StatsBoard({ type, members }: Props) {
           <CardHeader>
             <CardTitle className="text-xl">같은 총력전 점수구간 · 길드전 점수 분포</CardTitle>
             <CardDescription>
-              최신 총력전 시즌 점수 구간으로 묶은 뒤, 각 길드원의 선택 시즌 길드전 점수를 비교합니다.
+              직전 완료 총력전 시즌 점수 구간으로 묶은 뒤, 각 길드원의 선택 시즌 길드전 점수를 비교합니다.
             </CardDescription>
+            {settledPowerSeason && (
+              <div className="pt-1 text-sm text-zinc-600">
+                기준 총력전: <span className="font-semibold text-zinc-800">{settledPowerSeason.name}</span>
+                <span className="text-zinc-400"> (종료 {settledPowerSeason.end})</span>
+              </div>
+            )}
           </CardHeader>
           <CardContent className="space-y-3">
-            {crossDistribution.length === 0 ? (
+            {!settledPowerSeason ? (
+              <div className="rounded-2xl border border-dashed border-zinc-300 px-4 py-12 text-center text-sm text-zinc-500">
+                정산 완료된 총력전 시즌이 없습니다.
+              </div>
+            ) : crossDistribution.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-zinc-300 px-4 py-12 text-center text-sm text-zinc-500">
                 총력전·길드전 점수가 모두 입력된 길드원이 없습니다.
               </div>

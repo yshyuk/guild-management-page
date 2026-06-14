@@ -21,6 +21,14 @@ export function prevSeason(seasons: ScoreSeason[], currentId: number): ScoreSeas
   return sorted[idx - 1];
 }
 
+// 직전 완료 시즌: 종료일이 today 이전(end != null && end < today)인 시즌 중
+// 종료일 최신을 반환(동률이면 생성순 id 뒤). 후보 없으면 null.
+export function latestSettledSeason(seasons: ScoreSeason[], today: string): ScoreSeason | null {
+  const settled = seasons.filter((s): s is ScoreSeason & { end: string } => s.end != null && s.end < today);
+  if (settled.length === 0) return null;
+  return [...settled].sort((a, b) => a.end.localeCompare(b.end) || a.id - b.id)[settled.length - 1];
+}
+
 // 종료된 시즌(전체 시즌추이 포함 대상): 종료일이 있거나, 최신(마지막 생성) 시즌이 아니면 종료.
 export function endedSeasons(seasons: ScoreSeason[]): ScoreSeason[] {
   const sorted = sortSeasons(seasons);

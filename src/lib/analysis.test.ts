@@ -6,6 +6,7 @@ import {
   buildSeasonRanking,
   buildSingleSeasonBars,
   buildTrendData,
+  latestSettledSeason,
 } from './analysis';
 import type { Member, ScoreSeason, SeasonScore } from './types';
 
@@ -85,5 +86,52 @@ describe('buildTrendData', () => {
     expect(data).toHaveLength(2);
     expect(data[0]).toMatchObject({ season: 'S1', 가: 100, 나: null });
     expect(data[1]).toMatchObject({ season: 'S2', 가: 200, 나: null });
+  });
+});
+
+describe('latestSettledSeason', () => {
+  const today = '2026-04-01';
+
+  it('end < today 인 시즌 중 종료일 최신을 반환', () => {
+    const s: ScoreSeason[] = [
+      { id: 1, type: '총력전', name: 'A', start: '2026-01-01', end: '2026-01-31' },
+      { id: 2, type: '총력전', name: 'B', start: '2026-03-01', end: '2026-03-20' },
+      { id: 3, type: '총력전', name: 'C', start: '2026-02-01', end: '2026-02-28' },
+    ];
+    expect(latestSettledSeason(s, today)?.id).toBe(2);
+  });
+
+  it('종료일이 null인 시즌(진행 중)은 제외', () => {
+    const s: ScoreSeason[] = [
+      { id: 1, type: '총력전', name: 'A', start: '2026-01-01', end: '2026-01-31' },
+      { id: 2, type: '총력전', name: 'B', start: '2026-03-25', end: null },
+    ];
+    expect(latestSettledSeason(s, today)?.id).toBe(1);
+  });
+
+  it('종료일이 오늘이거나 미래인 시즌은 제외', () => {
+    const s: ScoreSeason[] = [
+      { id: 1, type: '총력전', name: 'A', start: '2026-01-01', end: '2026-01-31' },
+      { id: 2, type: '총력전', name: '오늘', start: '2026-03-01', end: '2026-04-01' },
+      { id: 3, type: '총력전', name: '미래', start: '2026-04-10', end: '2026-04-30' },
+    ];
+    expect(latestSettledSeason(s, today)?.id).toBe(1);
+  });
+
+  it('종료일 동률이면 생성순(id) 뒤 시즌', () => {
+    const s: ScoreSeason[] = [
+      { id: 1, type: '총력전', name: 'A', start: '2026-01-01', end: '2026-02-10' },
+      { id: 2, type: '총력전', name: 'B', start: '2026-01-15', end: '2026-02-10' },
+    ];
+    expect(latestSettledSeason(s, today)?.id).toBe(2);
+  });
+
+  it('완료 시즌이 없으면 null', () => {
+    const s: ScoreSeason[] = [
+      { id: 1, type: '총력전', name: 'A', start: '2026-03-25', end: null },
+      { id: 2, type: '총력전', name: 'B', start: '2026-04-10', end: '2026-04-30' },
+    ];
+    expect(latestSettledSeason(s, today)).toBeNull();
+    expect(latestSettledSeason([], today)).toBeNull();
   });
 });
