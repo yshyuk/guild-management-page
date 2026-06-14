@@ -111,13 +111,6 @@ export function getActiveOrPreviousGuildWarPeriod(
   return [...periods].sort((a, b) => a.start.localeCompare(b.start))[0] ?? null;
 }
 
-export function getNextRaidSunday(dateStr: string): string {
-  const base = parseDate(dateStr);
-  const plus14 = addDays(base, 14);
-  const sundayOffset = (7 - plus14.getDay()) % 7;
-  return formatDate(addDays(plus14, sundayOffset));
-}
-
 export function getNextGuildWarPeriod(
   periods: GuildWarPeriod[],
 ): { start: string; end: string } | null {
