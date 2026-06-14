@@ -534,11 +534,16 @@ export default function App() {
         body: JSON.stringify({ start, end }),
       });
       if (!res.ok) throw new Error(`Failed to create ${kind} period`);
-      const created = (await res.json()) as GuildWarPeriod;
-      const sorted = (prev: GuildWarPeriod[]) => sortByDate([...prev, created], 'start');
-      if (kind === 'guild') setGuildWarPeriods(sorted);
-      else if (kind === 'power') setPowerWarPeriods(sorted);
-      else setRaidDeadlines(sorted);
+      if (kind === 'guild') {
+        const created = (await res.json()) as GuildWarPeriod;
+        setGuildWarPeriods((prev) => sortByDate([...prev, created], 'start'));
+      } else if (kind === 'power') {
+        const created = (await res.json()) as GuildWarPeriod;
+        setPowerWarPeriods((prev) => sortByDate([...prev, created], 'start'));
+      } else {
+        const created = (await res.json()) as RaidPeriod;
+        setRaidDeadlines((prev) => sortByDate([...prev, created], 'start'));
+      }
     } catch (error) {
       console.error(error);
     }
