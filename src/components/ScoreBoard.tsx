@@ -22,7 +22,13 @@ import { toScoreMap, prevSeason, sortSeasons, endedSeasons } from '@/lib/analysi
 import { formatDate } from '@/lib/dates';
 import ScoreChart from '@/components/ScoreChart';
 import { winRateText } from '@/lib/winrate';
-import type { Member, ScoreSeason, ScoreType, SeasonScore, GuildWarRecord } from '@/lib/types';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import type { Member, ScoreSeason, ScoreType, SeasonScore, GuildWarRecord, GuildWarMatchInput } from '@/lib/types';
 
 type Props = {
   type: ScoreType;
@@ -182,7 +188,41 @@ export default function ScoreBoard({ type, members }: Props) {
     }
   };
 
-  const openEdit = (_memberId: number) => {};
+  const [editTarget, setEditTarget] = useState<number | null>(null);
+  const [editWins, setEditWins] = useState('');
+  const [editLosses, setEditLosses] = useState('');
+  const [editHistory, setEditHistory] = useState<GuildWarMatchInput[]>([]);
+
+  const openEdit = (memberId: number) => {
+    const rec = records[memberId];
+    setEditTarget(memberId);
+    setEditWins(String(rec?.wins ?? 0));
+    setEditLosses(String(rec?.losses ?? 0));
+    setEditHistory([]);
+    if (selectedSeasonId !== null) {
+      api
+        .get<GuildWarMatchInput[]>(`/guild-war-records/inputs?seasonId=${selectedSeasonId}&memberId=${memberId}`)
+        .then(setEditHistory)
+        .catch(console.error);
+    }
+  };
+
+  const saveEdit = async () => {
+    if (editTarget === null || selectedSeasonId === null) return;
+    const wins = Number(editWins);
+    const losses = Number(editLosses);
+    if (Number.isNaN(wins) || Number.isNaN(losses) || wins < 0 || losses < 0) return;
+    try {
+      await api.put('/guild-war-records', { seasonId: selectedSeasonId, memberId: editTarget, wins, losses });
+      setRecords((prev) => ({
+        ...prev,
+        [editTarget]: { memberId: editTarget, wins, losses, lastInputDate: prev[editTarget]?.lastInputDate ?? null },
+      }));
+      setEditTarget(null);
+    } catch (error) {
+      console.error(error);
+    }
+  };
 
   const gridCols = isGuild
     ? 'grid-cols-[minmax(110px,1.3fr)_84px_56px_180px_92px_64px_84px_120px]'
@@ -488,6 +528,44 @@ export default function ScoreBoard({ type, members }: Props) {
           </div>
         )}
       </CardContent>
+      <Dialog open={editTarget !== null} onOpenChange={(o) => !o && setEditTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              전적 수정 {editTarget !== null ? `· ${members.find((m) => m.id === editTarget)?.name ?? ''}` : ''}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex items-end gap-3">
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-zinc-500">승</label>
+              <Input type="number" inputMode="numeric" value={editWins} onChange={(e) => setEditWins(e.target.value)} className="h-9 w-20 rounded-xl text-right" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-zinc-500">패</label>
+              <Input type="number" inputMode="numeric" value={editLosses} onChange={(e) => setEditLosses(e.target.value)} className="h-9 w-20 rounded-xl text-right" />
+            </div>
+            <Button className="h-9 rounded-xl" onClick={() => void saveEdit()}>저장</Button>
+          </div>
+          <div className="mt-4">
+            <div className="mb-1 text-xs font-semibold text-zinc-500">입력 이력</div>
+            {editHistory.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-zinc-200 px-3 py-6 text-center text-xs text-zinc-400">입력 이력이 없습니다.</div>
+            ) : (
+              <div className="max-h-48 space-y-1 overflow-auto">
+                {editHistory.map((h) => (
+                  <div key={h.id} className="flex items-center justify-between rounded-lg bg-zinc-50 px-3 py-1.5 text-xs">
+                    <span className="text-zinc-500">{h.date}</span>
+                    <span className="tabular-nums">
+                      <span className="font-semibold text-rose-500">{h.wins}승</span>{' '}
+                      <span className="font-semibold text-sky-500">{h.losses}패</span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
