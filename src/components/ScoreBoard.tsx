@@ -209,8 +209,8 @@ export default function ScoreBoard({ type, members }: Props) {
 
   const saveEdit = async () => {
     if (editTarget === null || selectedSeasonId === null) return;
-    const wins = Number(editWins);
-    const losses = Number(editLosses);
+    const wins = Math.floor(Number(editWins));
+    const losses = Math.floor(Number(editLosses));
     if (Number.isNaN(wins) || Number.isNaN(losses) || wins < 0 || losses < 0) return;
     try {
       await api.put('/guild-war-records', { seasonId: selectedSeasonId, memberId: editTarget, wins, losses });
