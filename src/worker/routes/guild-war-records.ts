@@ -59,21 +59,23 @@ app.post('/match', async (c) => {
     return c.json({ error: 'wins+losses must be between 1 and 5' }, 400);
   }
   const db = getDb(c.env.DB);
-  await db.insert(guildWarMatchInputs).values({ seasonId, memberId, date, wins, losses });
-  await db
-    .insert(guildWarRecords)
-    .values({ seasonId, memberId, wins, losses })
-    .onConflictDoUpdate({
-      target: [guildWarRecords.seasonId, guildWarRecords.memberId],
-      set: {
-        wins: sql`${guildWarRecords.wins} + ${wins}`,
-        losses: sql`${guildWarRecords.losses} + ${losses}`,
-      },
-    });
-  const [rec] = await db
-    .select({ memberId: guildWarRecords.memberId, wins: guildWarRecords.wins, losses: guildWarRecords.losses })
-    .from(guildWarRecords)
-    .where(and(eq(guildWarRecords.seasonId, seasonId), eq(guildWarRecords.memberId, memberId)));
+  // 로그 insert + 카운터 누적 upsert를 batch로 원자 실행(D1은 인터랙티브 트랜잭션 미지원)
+  const results = await db.batch([
+    db.insert(guildWarMatchInputs).values({ seasonId, memberId, date, wins, losses }),
+    db
+      .insert(guildWarRecords)
+      .values({ seasonId, memberId, wins, losses })
+      .onConflictDoUpdate({
+        target: [guildWarRecords.seasonId, guildWarRecords.memberId],
+        set: {
+          wins: sql`${guildWarRecords.wins} + ${wins}`,
+          losses: sql`${guildWarRecords.losses} + ${losses}`,
+        },
+      })
+      .returning({ memberId: guildWarRecords.memberId, wins: guildWarRecords.wins, losses: guildWarRecords.losses }),
+  ]);
+  const rec = results[1][0];
+  if (!rec) return c.json({ error: 'Failed to record match' }, 500);
   return c.json({ ...rec, lastInputDate: date }, 201);
 });
 

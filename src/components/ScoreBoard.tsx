@@ -40,6 +40,7 @@ export default function ScoreBoard({ type, members }: Props) {
   const isGuild = type === '길드전';
   const [records, setRecords] = useState<Record<number, GuildWarRecord>>({});
   const [oxByMember, setOxByMember] = useState<Record<number, Array<'o' | 'x' | null>>>({});
+  const [recordingIds, setRecordingIds] = useState<Record<number, boolean>>({});
   const [seasons, setSeasons] = useState<ScoreSeason[]>([]);
   const [selectedSeasonId, setSelectedSeasonId] = useState<number | null>(null);
   const [allScores, setAllScores] = useState<SeasonScore[]>([]);
@@ -137,8 +138,9 @@ export default function ScoreBoard({ type, members }: Props) {
     }
   };
 
-  // 길드전 전적 로드 (시즌 변경 시)
+  // 길드전 전적 로드 (시즌 변경 시). 시즌이 바뀌면 진행 중이던 O/X 입력도 초기화.
   useEffect(() => {
+    setOxByMember({});
     if (!isGuild || selectedSeasonId === null) {
       setRecords({});
       return;
@@ -168,11 +170,12 @@ export default function ScoreBoard({ type, members }: Props) {
   };
 
   const recordMatch = async (memberId: number) => {
-    if (selectedSeasonId === null) return;
+    if (selectedSeasonId === null || recordingIds[memberId]) return;
     const ox = getOx(memberId);
     const wins = ox.filter((v) => v === 'o').length;
     const losses = ox.filter((v) => v === 'x').length;
     if (wins + losses < 1) return;
+    setRecordingIds((prev) => ({ ...prev, [memberId]: true }));
     try {
       const updated = await api.post<GuildWarRecord>('/guild-war-records/match', {
         seasonId: selectedSeasonId,
@@ -185,6 +188,8 @@ export default function ScoreBoard({ type, members }: Props) {
       setOxByMember((prev) => ({ ...prev, [memberId]: [null, null, null, null, null] }));
     } catch (error) {
       console.error(error);
+    } finally {
+      setRecordingIds((prev) => ({ ...prev, [memberId]: false }));
     }
   };
 
@@ -209,6 +214,7 @@ export default function ScoreBoard({ type, members }: Props) {
 
   const saveEdit = async () => {
     if (editTarget === null || selectedSeasonId === null) return;
+    if (editWins.trim() === '' || editLosses.trim() === '') return;
     const wins = Math.floor(Number(editWins));
     const losses = Math.floor(Number(editLosses));
     if (Number.isNaN(wins) || Number.isNaN(losses) || wins < 0 || losses < 0) return;
@@ -505,7 +511,7 @@ export default function ScoreBoard({ type, members }: Props) {
                               <Button
                                 className="h-7 rounded-lg px-2 text-xs"
                                 onClick={() => void recordMatch(member.id)}
-                                disabled={ox.every((v) => v === null)}
+                                disabled={ox.every((v) => v === null) || !!recordingIds[member.id]}
                               >
                                 기록
                               </Button>
