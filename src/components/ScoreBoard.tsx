@@ -21,7 +21,8 @@ import { computeDelta, deltaText, deltaColorClass } from '@/lib/score';
 import { toScoreMap, prevSeason, sortSeasons, endedSeasons } from '@/lib/analysis';
 import { formatDate } from '@/lib/dates';
 import ScoreChart from '@/components/ScoreChart';
-import type { Member, ScoreSeason, ScoreType, SeasonScore } from '@/lib/types';
+import { winRateText } from '@/lib/winrate';
+import type { Member, ScoreSeason, ScoreType, SeasonScore, GuildWarRecord } from '@/lib/types';
 
 type Props = {
   type: ScoreType;
@@ -30,6 +31,9 @@ type Props = {
 
 export default function ScoreBoard({ type, members }: Props) {
   const today = formatDate(new Date());
+  const isGuild = type === '길드전';
+  const [records, setRecords] = useState<Record<number, GuildWarRecord>>({});
+  const [oxByMember, setOxByMember] = useState<Record<number, Array<'o' | 'x' | null>>>({});
   const [seasons, setSeasons] = useState<ScoreSeason[]>([]);
   const [selectedSeasonId, setSelectedSeasonId] = useState<number | null>(null);
   const [allScores, setAllScores] = useState<SeasonScore[]>([]);
@@ -126,6 +130,63 @@ export default function ScoreBoard({ type, members }: Props) {
       console.error(error);
     }
   };
+
+  // 길드전 전적 로드 (시즌 변경 시)
+  useEffect(() => {
+    if (!isGuild || selectedSeasonId === null) {
+      setRecords({});
+      return;
+    }
+    let cancelled = false;
+    api
+      .get<GuildWarRecord[]>(`/guild-war-records?seasonId=${selectedSeasonId}`)
+      .then((rows) => {
+        if (!cancelled) setRecords(Object.fromEntries(rows.map((r) => [r.memberId, r])));
+      })
+      .catch(console.error);
+    return () => {
+      cancelled = true;
+    };
+  }, [isGuild, selectedSeasonId]);
+
+  const getOx = (memberId: number): Array<'o' | 'x' | null> =>
+    oxByMember[memberId] ?? [null, null, null, null, null];
+
+  const cycleOx = (memberId: number, idx: number) => {
+    setOxByMember((prev) => {
+      const cur = prev[memberId] ?? [null, null, null, null, null];
+      const next = [...cur];
+      next[idx] = cur[idx] === null ? 'o' : cur[idx] === 'o' ? 'x' : null;
+      return { ...prev, [memberId]: next };
+    });
+  };
+
+  const recordMatch = async (memberId: number) => {
+    if (selectedSeasonId === null) return;
+    const ox = getOx(memberId);
+    const wins = ox.filter((v) => v === 'o').length;
+    const losses = ox.filter((v) => v === 'x').length;
+    if (wins + losses < 1) return;
+    try {
+      const updated = await api.post<GuildWarRecord>('/guild-war-records/match', {
+        seasonId: selectedSeasonId,
+        memberId,
+        date: today,
+        wins,
+        losses,
+      });
+      setRecords((prev) => ({ ...prev, [memberId]: updated }));
+      setOxByMember((prev) => ({ ...prev, [memberId]: [null, null, null, null, null] }));
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const openEdit = (_memberId: number) => {};
+
+  const gridCols = isGuild
+    ? 'grid-cols-[minmax(110px,1.3fr)_84px_56px_180px_92px_64px_84px_120px]'
+    : 'grid-cols-[1.6fr_1fr_0.9fr]';
 
   const addSeason = async () => {
     const name = newSeasonName.trim();
@@ -331,20 +392,33 @@ export default function ScoreBoard({ type, members }: Props) {
                 allScores={allScores}
               />
             ) : (
-              <div className="overflow-hidden rounded-2xl border border-zinc-200">
-                <div className="grid grid-cols-[1.6fr_1fr_0.9fr] bg-zinc-50 px-3 py-3 text-xs font-semibold text-zinc-600">
+              <div className={`${isGuild ? 'overflow-x-auto' : 'overflow-hidden'} rounded-2xl border border-zinc-200`}>
+                <div className={`grid ${gridCols} ${isGuild ? 'min-w-[860px]' : ''} bg-zinc-50 px-3 py-3 text-xs font-semibold text-zinc-600`}>
                   <div>{type} 점수변동</div>
                   <div className="text-right">점수</div>
                   <div className="text-right">변동</div>
+                  {isGuild && (
+                    <>
+                      <div className="text-center">5판 입력</div>
+                      <div className="text-center">전적</div>
+                      <div className="text-right">승률</div>
+                      <div className="text-center">최근 입력</div>
+                      <div className="text-center">액션</div>
+                    </>
+                  )}
                 </div>
                 <div className="max-h-[680px] overflow-auto">
                   {members.map((member, idx) => {
                     const score = getScore(member.id);
                     const delta = computeDelta(score, prevMap?.get(member.id) ?? null);
+                    const rec = records[member.id];
+                    const wins = rec?.wins ?? 0;
+                    const losses = rec?.losses ?? 0;
+                    const ox = getOx(member.id);
                     return (
                       <div
                         key={member.id}
-                        className={['grid grid-cols-[1.6fr_1fr_0.9fr] items-center border-t border-zinc-100 px-3 py-1.5 text-sm', idx % 2 === 1 ? 'bg-zinc-50/60' : ''].join(' ')}
+                        className={`grid ${gridCols} ${isGuild ? 'min-w-[860px]' : ''} items-center border-t border-zinc-100 px-3 py-1.5 text-sm ${idx % 2 === 1 ? 'bg-zinc-50/60' : ''}`}
                       >
                         <div className="font-medium text-zinc-800">{member.name}</div>
                         <div className="px-1">
@@ -360,6 +434,51 @@ export default function ScoreBoard({ type, members }: Props) {
                         <div className={`text-right text-xs font-semibold tabular-nums ${deltaColorClass(delta)}`}>
                           {deltaText(delta) || '-'}
                         </div>
+                        {isGuild && (
+                          <>
+                            <div className="flex justify-center gap-1">
+                              {ox.map((v, i) => (
+                                <button
+                                  key={i}
+                                  type="button"
+                                  onClick={() => cycleOx(member.id, i)}
+                                  className={[
+                                    'h-6 w-6 rounded-md border text-xs font-semibold',
+                                    v === 'o'
+                                      ? 'border-rose-200 bg-rose-100 text-rose-600'
+                                      : v === 'x'
+                                        ? 'border-sky-200 bg-sky-100 text-sky-600'
+                                        : 'border-zinc-200 bg-zinc-50 text-zinc-300',
+                                  ].join(' ')}
+                                >
+                                  {v === 'o' ? 'O' : v === 'x' ? 'X' : '·'}
+                                </button>
+                              ))}
+                            </div>
+                            <div className="text-center text-xs tabular-nums">
+                              <span className="font-semibold text-rose-500">{wins}승</span>{' '}
+                              <span className="font-semibold text-sky-500">{losses}패</span>
+                            </div>
+                            <div className="text-right text-xs font-semibold tabular-nums">{winRateText(wins, losses)}</div>
+                            <div className="text-center text-xs text-zinc-400">{rec?.lastInputDate ?? '-'}</div>
+                            <div className="flex justify-center gap-1">
+                              <Button
+                                className="h-7 rounded-lg px-2 text-xs"
+                                onClick={() => void recordMatch(member.id)}
+                                disabled={ox.every((v) => v === null)}
+                              >
+                                기록
+                              </Button>
+                              <Button
+                                variant="outline"
+                                className="h-7 rounded-lg px-2 text-xs"
+                                onClick={() => openEdit(member.id)}
+                              >
+                                수정
+                              </Button>
+                            </div>
+                          </>
+                        )}
                       </div>
                     );
                   })}
