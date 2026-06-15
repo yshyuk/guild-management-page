@@ -9,6 +9,7 @@ import dashboardRange from './routes/dashboard-range';
 import warnings from './routes/warnings';
 import scoreSeasons from './routes/score-seasons';
 import scores from './routes/scores';
+import guildWarRecords from './routes/guild-war-records';
 
 const app = new Hono<AppEnv>();
 
@@ -22,6 +23,7 @@ api.route('/dashboard-range', dashboardRange);
 api.route('/warnings', warnings);
 api.route('/score-seasons', scoreSeasons);
 api.route('/scores', scores);
+api.route('/guild-war-records', guildWarRecords);
 
 api.onError((err, c) => {
   console.error(err);
