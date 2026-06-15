@@ -69,3 +69,17 @@ export type SeasonScore = {
   memberId: number;
   score: number;
 };
+
+export type GuildWarRecord = {
+  memberId: number;
+  wins: number;
+  losses: number;
+  lastInputDate: string | null;
+};
+
+export type GuildWarMatchInput = {
+  id: number;
+  date: string;
+  wins: number;
+  losses: number;
+};

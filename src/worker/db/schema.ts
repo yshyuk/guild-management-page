@@ -166,3 +166,47 @@ export const scores = sqliteTable(
     index('scores_season_idx').on(t.seasonId),
   ],
 );
+
+// 길드전 승패 누적 카운터 (시즌·길드원당 1행, 권위값)
+export const guildWarRecords = sqliteTable(
+  'guild_war_records',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    seasonId: integer('season_id')
+      .notNull()
+      .references(() => scoreSeasons.id, { onDelete: 'cascade' }),
+    memberId: integer('member_id')
+      .notNull()
+      .references(() => members.id, { onDelete: 'cascade' }),
+    wins: integer('wins').notNull().default(0),
+    losses: integer('losses').notNull().default(0),
+    createdAt: text('created_at')
+      .notNull()
+      .default(sql`(current_timestamp)`),
+  },
+  (t) => [
+    uniqueIndex('guild_war_records_unique').on(t.seasonId, t.memberId),
+    index('guild_war_records_season_idx').on(t.seasonId),
+  ],
+);
+
+// 길드전 경기 입력 로그 (append-only, 입력일 이력)
+export const guildWarMatchInputs = sqliteTable(
+  'guild_war_match_inputs',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    seasonId: integer('season_id')
+      .notNull()
+      .references(() => scoreSeasons.id, { onDelete: 'cascade' }),
+    memberId: integer('member_id')
+      .notNull()
+      .references(() => members.id, { onDelete: 'cascade' }),
+    date: text('date').notNull(), // YYYY-MM-DD (입력일)
+    wins: integer('wins').notNull(), // 0~5
+    losses: integer('losses').notNull(), // 0~5
+    createdAt: text('created_at')
+      .notNull()
+      .default(sql`(current_timestamp)`),
+  },
+  (t) => [index('guild_war_match_inputs_member_idx').on(t.seasonId, t.memberId)],
+);
