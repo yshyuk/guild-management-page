@@ -4,7 +4,7 @@
     "target": {
       "namespace": "android_app",
       "package_name": "kr.guild.management",
-      "sha256_cert_fingerprints": ["REPLACE_WITH_KEYSTORE_SHA256_AFTER_BUILD"]
+      "sha256_cert_fingerprints": ["31:24:A6:AE:5D:27:3D:1D:01:FE:C0:C2:7B:CD:2C:36:AB:37:99:64:27:06:60:60:88:2C:3C:E1:82:1D:3F:1D"]
     }
   }
 ]
