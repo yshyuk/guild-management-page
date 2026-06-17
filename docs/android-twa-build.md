@@ -7,6 +7,16 @@
 
 ---
 
+## ✅ APK 이미 빌드 완료 (2026-06-17)
+
+- 산출물: `~/Downloads/길드관리.apk` (= `~/twa-guild/app-release-signed.apk`), 1.07 MB
+- 패키지 `kr.guild.management`, 앱 이름 `길드 관리`, 버전 `1.0.0`, minSdk 21 / targetSdk 35
+- 서명 지문이 라이브 `assetlinks.json`과 일치 → 설치 시 주소창 없이 전체화면
+- **설치**: 이 APK를 폰으로 옮겨(USB/카톡 나에게/드라이브) "출처 불명 앱 설치 허용" 후 설치
+- 아래 절차는 **재빌드(버전 올리기/도메인 변경 등)할 때** 참고
+
+---
+
 ## 이미 준비된 것 (자동 처리 완료)
 
 - ✅ PWA manifest / 아이콘(방패+검) / `assetlinks.json` — 레포에 포함, 배포 시 라이브 반영
@@ -90,6 +100,7 @@ npx @bubblewrap/cli@latest build
 - **APK 재빌드 필요한 경우**: 앱 이름/아이콘/URL/네이티브 설정 변경 시
   - 반드시 **같은 키스토어**(`.twa/android-twa.keystore`)로 서명해야 기존 설치본 업데이트 가능
   - 버전 올릴 때: `twa-manifest.json` 의 `appVersionCode`(정수 +1) / `appVersionName` 수정 후 `build`
+  - ⚠️ 비대화형으로 `yes y | bubblewrap update` 를 쓰면 버전 프롬프트까지 `y`로 답해 versionName이 `y`로 들어간다. update 후 `app/build.gradle` 의 `versionName` 을 확인/정정하고, 재서명은 `bubblewrap build < /dev/null` (비번은 `BUBBLEWRAP_KEYSTORE_PASSWORD`/`BUBBLEWRAP_KEY_PASSWORD` 환경변수)로.
 - **커스텀 도메인으로 변경 시**: `twa-manifest.json` 의 host/URL들 + `assetlinks.json` 재설정 후 재빌드
 
 ---
