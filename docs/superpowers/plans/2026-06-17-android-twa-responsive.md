@@ -385,9 +385,9 @@ git commit -m "feat(twa): assetlinks.json 추가(지문은 빌드 후 기입)"
 
 `docs/android-twa-build.md` 에 아래 절차를 기록:
 1. 사전: JDK 17 설치 확인(`java -version`), `npx @bubblewrap/cli doctor`로 Android SDK 자동 설치
-2. 배포 URL 확정(필수): `<배포URL>` 값을 먼저 확정
-3. `npx @bubblewrap/cli init --manifest https://<배포URL>/manifest.webmanifest`
-4. `twa-manifest.json` 설정값: packageId `kr.guild.management`, launcherName `길드 관리`, themeColor `#fafafa`, host `<배포URL>`
+2. 배포 URL: `guild-management-page.yshyuk-63.workers.dev` (고정)
+3. `npx @bubblewrap/cli init --manifest https://guild-management-page.yshyuk-63.workers.dev/manifest.webmanifest`
+4. `twa-manifest.json` 설정값: packageId `kr.guild.management`, launcherName `길드 관리`, themeColor `#fafafa`, host `guild-management-page.yshyuk-63.workers.dev`
 5. `npx @bubblewrap/cli build` → `app-release-signed.apk` + keystore 생성
 6. `npx @bubblewrap/cli fingerprint` 또는 keytool로 SHA-256 추출 → `public/.well-known/assetlinks.json`의 `REPLACE_...` 자리에 기입
 7. `npm run deploy` 재배포(주소창 숨김 적용)
@@ -407,4 +407,4 @@ git commit -m "docs(twa): APK 빌드 런북 추가"
 - **Spec 커버리지:** 파트1(Task2-4,1) / 파트2(Task5) / 파트3 파일(Task6) / 파트4 런북(Task7) / 전역 safe-area(Task1) 모두 태스크 존재. 파트4 실제 빌드는 사용자 환경 필요 → 런북으로 위임(스펙 §4 일치).
 - **플레이스홀더:** assetlinks 지문은 의도된 미정값(빌드 후 기입)으로 명시. 그 외 플레이스홀더 없음.
 - **타입/네이밍 일관성:** ScoreBoard 카드에서 쓰는 핸들러·변수명(getScore/handleScoreChange/persistCell/computeDelta/getOx/cycleOx/recordMatch/openEdit/records/recordingIds/prevMap/winRateText/deltaText/deltaColorClass)은 기존 정의와 일치 확인.
-- **미해결 의존성:** 배포 URL 미확정 시 Task7 실행 불가 — 빌드 단계에서 사용자 확인 필요.
+- **배포 URL(고정):** `https://guild-management-page.yshyuk-63.workers.dev` — Task7(빌드)에 반영됨.

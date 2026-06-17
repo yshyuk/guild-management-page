@@ -16,19 +16,15 @@ npx @bubblewrap/cli doctor   # Android SDK/JDK 점검 및 자동 설치 유도
 
 ---
 
-## 1. 배포 URL 확정 (필수)
+## 1. 배포 URL (고정)
 
-TWA는 고정 HTTPS URL에 묶인다. 아래 중 실제 배포 주소를 확정한다.
+TWA는 고정 HTTPS URL에 묶인다. 이 프로젝트의 배포 주소:
 
-- 기본 Workers 도메인: `https://guild-management-page.<계정서브도메인>.workers.dev`
-- 또는 커스텀 도메인
-
-확인:
-```bash
-npm run deploy        # 배포 후 출력되는 URL 확인
+```
+https://guild-management-page.yshyuk-63.workers.dev
 ```
 
-이 문서에서는 이 값을 `<배포URL>` 로 표기한다.
+> 이 `yshyuk-63` 서브도메인은 Cloudflare 계정에 종속된 값이라 레포 코드(`wrangler.jsonc`엔 worker 이름만 있음)에는 없다. 커스텀 도메인으로 바꾸면 이 문서와 assetlinks/TWA 재설정 필요.
 
 ---
 
@@ -37,9 +33,9 @@ npm run deploy        # 배포 후 출력되는 URL 확인
 ```bash
 npm run deploy
 # 확인:
-#   https://<배포URL>/manifest.webmanifest
-#   https://<배포URL>/icons/icon-512.png
-#   https://<배포URL>/.well-known/assetlinks.json   (아직 지문은 플레이스홀더)
+#   https://guild-management-page.yshyuk-63.workers.dev/manifest.webmanifest
+#   https://guild-management-page.yshyuk-63.workers.dev/icons/icon-512.png
+#   https://guild-management-page.yshyuk-63.workers.dev/.well-known/assetlinks.json   (아직 지문은 플레이스홀더)
 ```
 
 ---
@@ -50,7 +46,7 @@ npm run deploy
 
 ```bash
 mkdir -p ~/twa-guild && cd ~/twa-guild
-npx @bubblewrap/cli init --manifest https://<배포URL>/manifest.webmanifest
+npx @bubblewrap/cli init --manifest https://guild-management-page.yshyuk-63.workers.dev/manifest.webmanifest
 ```
 
 대화형 프롬프트 입력값:
@@ -99,7 +95,7 @@ npm run deploy
 ```
 
 검증: <https://developers.google.com/digital-asset-links/tools/generator> 또는
-`https://<배포URL>/.well-known/assetlinks.json` 가 실제 지문을 담고 있는지 확인.
+`https://guild-management-page.yshyuk-63.workers.dev/.well-known/assetlinks.json` 가 실제 지문을 담고 있는지 확인.
 
 ---
 

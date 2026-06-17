@@ -85,12 +85,12 @@
 
 - `public/.well-known/assetlinks.json` 생성(파트 4의 SHA-256 지문 기입). 초기엔 플레이스홀더, 빌드 후 채움
 - `npm run deploy`로 라이브 반영
-- **확인 필요(미정)**: 실제 배포 URL — `guild-management-page.<account>.workers.dev` 또는 커스텀 도메인. TWA가 이 URL에 고정됨. 빌드 전 확정 필요
+- **배포 URL(고정)**: `https://guild-management-page.yshyuk-63.workers.dev`. TWA가 이 URL에 고정됨
 
 ### 파트 4 — Bubblewrap APK (사용자 Mac에서 함께)
 
 - 사전: JDK 17 + Android SDK (`bubblewrap doctor` 자동 설치 유도)
-- `npx @bubblewrap/cli init --manifest https://<배포URL>/manifest.webmanifest`
+- `npx @bubblewrap/cli init --manifest https://guild-management-page.yshyuk-63.workers.dev/manifest.webmanifest`
 - `twa-manifest.json`: `packageId: kr.guild.management`, `host`, `launcherName: "길드 관리"`, `themeColor`, 새 keystore
 - `npx @bubblewrap/cli build` → `app-release-signed.apk` + keystore
 - keystore SHA-256 지문 → 파트 3 assetlinks.json 기입 → 재배포(주소창 숨김)
@@ -114,6 +114,6 @@
 
 ## 7. 리스크
 
-- 실제 배포 URL 미확정 시 파트 4 진행 불가 → 빌드 전 확정 필요
+- 배포 URL 확정됨(`guild-management-page.yshyuk-63.workers.dev`). 커스텀 도메인으로 변경 시 TWA/assetlinks 재설정 필요
 - Bubblewrap 첫 실행 시 JDK/SDK 다운로드 시간 소요
 - 카드/테이블 분기로 ScoreBoard 코드량 증가 — 동일 데이터·핸들러 재사용으로 중복 최소화
