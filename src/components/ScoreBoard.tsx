@@ -438,7 +438,86 @@ export default function ScoreBoard({ type, members }: Props) {
                 allScores={allScores}
               />
             ) : (
-              <div className={`${isGuild ? 'overflow-x-auto' : 'overflow-hidden'} rounded-2xl border border-zinc-200`}>
+              <>
+              {isGuild && (
+                <div className="space-y-2.5 md:hidden">
+                  {members.map((member) => {
+                    const score = getScore(member.id);
+                    const delta = computeDelta(score, prevMap?.get(member.id) ?? null);
+                    const rec = records[member.id];
+                    const wins = rec?.wins ?? 0;
+                    const losses = rec?.losses ?? 0;
+                    const ox = getOx(member.id);
+                    return (
+                      <div key={member.id} className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-[0_1px_3px_rgba(15,23,42,0.05)]">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="font-semibold text-zinc-800">{member.name}</div>
+                          <div className="flex items-center gap-2">
+                            <Input
+                              type="number"
+                              inputMode="numeric"
+                              value={score ?? ''}
+                              onChange={(e) => handleScoreChange(member.id, e.target.value)}
+                              onBlur={() => void persistCell(member.id)}
+                              className="h-8 w-[72px] rounded-lg text-right"
+                            />
+                            <span className={`min-w-[42px] text-right text-xs font-semibold tabular-nums ${deltaColorClass(delta)}`}>
+                              {deltaText(delta) || '-'}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="mt-2.5 flex items-center gap-1.5">
+                          <span className="w-7 text-[11px] text-zinc-400">5판</span>
+                          {ox.map((v, i) => (
+                            <button
+                              key={i}
+                              type="button"
+                              onClick={() => cycleOx(member.id, i)}
+                              className={[
+                                'h-8 w-8 rounded-md border text-xs font-semibold',
+                                v === 'o'
+                                  ? 'border-rose-200 bg-rose-100 text-rose-600'
+                                  : v === 'x'
+                                    ? 'border-sky-200 bg-sky-100 text-sky-600'
+                                    : 'border-zinc-200 bg-zinc-50 text-zinc-300',
+                              ].join(' ')}
+                            >
+                              {v === 'o' ? 'O' : v === 'x' ? 'X' : '·'}
+                            </button>
+                          ))}
+                        </div>
+                        <div className="mt-2.5 flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 text-xs tabular-nums">
+                            <span>
+                              <span className="font-semibold text-rose-500">{wins}승</span>{' '}
+                              <span className="font-semibold text-sky-500">{losses}패</span>
+                            </span>
+                            <span className="font-semibold text-zinc-600">{winRateText(wins, losses)}</span>
+                            <span className="text-zinc-400">{rec?.lastInputDate ?? '-'}</span>
+                          </div>
+                          <div className="flex gap-1.5">
+                            <Button
+                              className="h-7 rounded-lg px-3 text-xs"
+                              onClick={() => void recordMatch(member.id)}
+                              disabled={ox.every((v) => v === null) || !!recordingIds[member.id]}
+                            >
+                              기록
+                            </Button>
+                            <Button
+                              variant="outline"
+                              className="h-7 rounded-lg px-3 text-xs"
+                              onClick={() => openEdit(member.id)}
+                            >
+                              수정
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              <div className={`${isGuild ? 'hidden overflow-x-auto md:block' : 'overflow-hidden'} rounded-2xl border border-zinc-200`}>
                 <div className={`grid ${gridCols} ${isGuild ? 'min-w-[860px]' : ''} bg-zinc-50 px-3 py-3 text-xs font-semibold text-zinc-600`}>
                   <div>{type} 점수변동</div>
                   <div className="text-right">점수</div>
@@ -530,6 +609,7 @@ export default function ScoreBoard({ type, members }: Props) {
                   })}
                 </div>
               </div>
+              </>
             )}
           </div>
         )}
