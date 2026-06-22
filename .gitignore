@@ -9,3 +9,7 @@ dist/
 
 # brainstorming visual companion
 .superpowers/
+
+# TWA 서명 키스토어(비밀 — 절대 커밋 금지, 별도 백업)
+.twa/
+*.keystore

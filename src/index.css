@@ -102,3 +102,11 @@
     @apply font-sans;
   }
 }
+
+/* TWA 전체화면: 상태바·폴드 노치 영역 침범 방지 */
+body {
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
