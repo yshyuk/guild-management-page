@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Trophy } from 'lucide-react';
+import { Trophy, Users, Check, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import {
   Card,
   CardContent,
@@ -8,6 +8,7 @@ import {
   CardDescription,
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   Select,
   SelectContent,
@@ -15,26 +16,50 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
 import { api } from '@/lib/api';
 import { bucketize, findBucket, deltaText, deltaColorClass } from '@/lib/score';
 import { toScoreMap, prevSeason, sortSeasons, buildSeasonRanking, latestSettledSeason } from '@/lib/analysis';
+import { winRate, winRateText } from '@/lib/winrate';
 import { formatDate } from '@/lib/dates';
-import type { Member, ScoreSeason, ScoreType, SeasonScore } from '@/lib/types';
+import type { Member, ScoreSeason, ScoreType, SeasonScore, GuildWarRecord } from '@/lib/types';
 
 type Props = {
   type: ScoreType;
   members: Member[];
 };
 
+type SortKey = 'name' | 'score' | 'winrate';
+
 export default function StatsBoard({ type, members }: Props) {
+  const isGuild = type === '길드전';
   const [seasons, setSeasons] = useState<ScoreSeason[]>([]);
   const [selectedSeasonId, setSelectedSeasonId] = useState<number | null>(null);
   const [allScores, setAllScores] = useState<SeasonScore[]>([]);
   const [powerSeasons, setPowerSeasons] = useState<ScoreSeason[]>([]);
   const [powerAllScores, setPowerAllScores] = useState<SeasonScore[]>([]);
+  const [records, setRecords] = useState<Record<number, GuildWarRecord>>({});
+  const [selectedMemberIds, setSelectedMemberIds] = useState<Set<number>>(new Set());
+  const [sortKey, setSortKey] = useState<SortKey>('score');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [loading, setLoading] = useState(true);
 
   const sortedSeasons = useMemo(() => sortSeasons(seasons), [seasons]);
+
+  const toggleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
+      setSortDir(key === 'name' ? 'asc' : 'desc');
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -80,10 +105,46 @@ export default function StatsBoard({ type, members }: Props) {
     };
   }, [type]);
 
+  // 길드전: 선택 시즌 전적(승/패) 로드 → 승률 표기용 (읽기 전용)
+  useEffect(() => {
+    if (type !== '길드전' || selectedSeasonId === null) {
+      setRecords({});
+      return;
+    }
+    let cancelled = false;
+    api
+      .get<GuildWarRecord[]>(`/guild-war-records?seasonId=${selectedSeasonId}`)
+      .then((rows) => {
+        if (!cancelled) setRecords(Object.fromEntries(rows.map((r) => [r.memberId, r])));
+      })
+      .catch(console.error);
+    return () => {
+      cancelled = true;
+    };
+  }, [type, selectedSeasonId]);
+
   const selectedSeason = useMemo(
     () => seasons.find((s) => s.id === selectedSeasonId) ?? null,
     [seasons, selectedSeasonId],
   );
+
+  // 선택 인원 필터 (비어 있으면 전체)
+  const visibleMembers = useMemo(
+    () => (selectedMemberIds.size === 0 ? members : members.filter((m) => selectedMemberIds.has(m.id))),
+    [members, selectedMemberIds],
+  );
+
+  const toggleMemberFilter = (id: number) => {
+    setSelectedMemberIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const winRateOf = (id: number): number | null => winRate(records[id]?.wins ?? 0, records[id]?.losses ?? 0);
+
   const currentMap = useMemo(
     () => toScoreMap(allScores.filter((s) => s.seasonId === selectedSeasonId).map((s) => ({ memberId: s.memberId, score: s.score }))),
     [allScores, selectedSeasonId],
@@ -96,7 +157,26 @@ export default function StatsBoard({ type, members }: Props) {
     () => (prev ? toScoreMap(allScores.filter((s) => s.seasonId === prev.id).map((s) => ({ memberId: s.memberId, score: s.score }))) : null),
     [prev, allScores],
   );
-  const ranking = useMemo(() => buildSeasonRanking(members, currentMap, prevMap), [members, currentMap, prevMap]);
+  const ranking = useMemo(() => buildSeasonRanking(visibleMembers, currentMap, prevMap), [visibleMembers, currentMap, prevMap]);
+
+  // 순위(rank)는 점수 기준 고정. 화면 표시 순서만 정렬 키에 따라 재배열.
+  const displayRanking = useMemo(() => {
+    const dir = sortDir === 'asc' ? 1 : -1;
+    return [...ranking].sort((a, b) => {
+      if (sortKey === 'name') return a.name.localeCompare(b.name, 'ko') * dir;
+      if (sortKey === 'winrate') {
+        const wa = winRateOf(a.memberId);
+        const wb = winRateOf(b.memberId);
+        if (wa === null && wb === null) return a.rank - b.rank;
+        if (wa === null) return 1;
+        if (wb === null) return -1;
+        return (wa - wb) * dir || a.rank - b.rank;
+      }
+      return (a.score - b.score) * dir || a.name.localeCompare(b.name, 'ko');
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ranking, sortKey, sortDir, records]);
+
   const buckets = useMemo(() => bucketize(ranking.map((r) => r.score), type), [ranking, type]);
   const maxBucketCount = Math.max(1, ...buckets.map((b) => b.count));
 
@@ -111,21 +191,49 @@ export default function StatsBoard({ type, members }: Props) {
 
   const crossDistribution = useMemo(() => {
     if (type !== '길드전' || powerMap.size === 0) return [];
-    const groups = new Map<string, { label: string; min: number; members: { member: string; guild: number }[] }>();
-    for (const m of members) {
+    const groups = new Map<string, { label: string; min: number; members: { member: string; guild: number; winrate: string }[] }>();
+    for (const m of visibleMembers) {
       const power = powerMap.get(m.id);
       const guild = currentMap.get(m.id);
       if (power === undefined || guild === undefined) continue;
       const bucket = findBucket(power, '총력전');
       if (!bucket) continue;
       const g = groups.get(bucket.label) ?? { label: bucket.label, min: bucket.min, members: [] };
-      g.members.push({ member: m.name, guild });
+      g.members.push({ member: m.name, guild, winrate: winRateText(records[m.id]?.wins ?? 0, records[m.id]?.losses ?? 0) });
       groups.set(bucket.label, g);
     }
     return [...groups.values()]
       .sort((a, b) => b.min - a.min)
       .map((g) => ({ ...g, members: g.members.sort((a, b) => b.guild - a.guild) }));
-  }, [type, powerMap, currentMap, members]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [type, powerMap, currentMap, visibleMembers, records]);
+
+  const sortIcon = (sk: SortKey) =>
+    sortKey !== sk ? (
+      <ArrowUpDown className="h-3 w-3 text-zinc-300" />
+    ) : sortDir === 'asc' ? (
+      <ArrowUp className="h-3 w-3" />
+    ) : (
+      <ArrowDown className="h-3 w-3" />
+    );
+
+  const sortHeader = (label: string, sk: SortKey, align: 'left' | 'right' | 'center' = 'left') => (
+    <button
+      type="button"
+      onClick={() => toggleSort(sk)}
+      className={[
+        'flex w-full items-center gap-0.5 hover:text-zinc-900',
+        align === 'right' ? 'justify-end' : align === 'center' ? 'justify-center' : '',
+      ].join(' ')}
+    >
+      <span>{label}</span>
+      {sortIcon(sk)}
+    </button>
+  );
+
+  const rankGridCols = isGuild
+    ? 'grid-cols-[0.5fr_1.6fr_1fr_0.9fr_0.9fr]'
+    : 'grid-cols-[0.5fr_1.6fr_1fr_0.9fr]';
 
   if (loading) {
     return (
@@ -161,7 +269,47 @@ export default function StatsBoard({ type, members }: Props) {
               ))}
             </SelectContent>
           </Select>
-          <span className="text-sm text-zinc-500">{ranking.length}명 집계</span>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="rounded-2xl">
+                <Users className="mr-1.5 h-4 w-4" />
+                {selectedMemberIds.size === 0 ? '전체 인원' : `${selectedMemberIds.size}명 선택`}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="max-h-[360px] w-56 overflow-auto">
+              <div className="flex gap-1.5 px-1 pb-1.5">
+                <Button variant="outline" size="sm" className="h-7 flex-1 rounded-lg text-xs" onClick={() => setSelectedMemberIds(new Set(members.map((m) => m.id)))}>
+                  전체 선택
+                </Button>
+                <Button variant="outline" size="sm" className="h-7 flex-1 rounded-lg text-xs" onClick={() => setSelectedMemberIds(new Set())}>
+                  전체(해제)
+                </Button>
+              </div>
+              <DropdownMenuSeparator />
+              {members.map((m) => {
+                const checked = selectedMemberIds.has(m.id);
+                return (
+                  <DropdownMenuItem
+                    key={m.id}
+                    onSelect={(e) => {
+                      e.preventDefault();
+                      toggleMemberFilter(m.id);
+                    }}
+                    className="justify-between"
+                  >
+                    <span className={checked ? 'font-medium text-zinc-900' : 'text-zinc-600'}>{m.name}</span>
+                    {checked && <Check className="h-4 w-4 text-zinc-900" />}
+                  </DropdownMenuItem>
+                );
+              })}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <span className="text-sm text-zinc-500">
+            {ranking.length}명 집계
+            {selectedMemberIds.size > 0 && <span className="text-zinc-400"> (선택 인원)</span>}
+          </span>
         </CardContent>
       </Card>
 
@@ -171,7 +319,7 @@ export default function StatsBoard({ type, members }: Props) {
             <CardTitle className="flex items-center gap-2 text-xl">
               <Trophy className="h-5 w-5 text-amber-500" />길드 내 {type} 순위
             </CardTitle>
-            <CardDescription>선택 시즌 점수 기준. 변동은 직전 시즌 대비입니다.</CardDescription>
+            <CardDescription>선택 시즌 점수 기준. 변동은 직전 시즌 대비입니다. 머리글을 눌러 정렬할 수 있습니다.</CardDescription>
           </CardHeader>
           <CardContent>
             {ranking.length === 0 ? (
@@ -180,15 +328,16 @@ export default function StatsBoard({ type, members }: Props) {
               </div>
             ) : (
               <div className="overflow-hidden rounded-2xl border border-zinc-200">
-                <div className="grid grid-cols-[0.5fr_1.6fr_1fr_0.9fr] bg-zinc-50 px-3 py-3 text-xs font-semibold text-zinc-600">
+                <div className={`grid ${rankGridCols} bg-zinc-50 px-3 py-3 text-xs font-semibold text-zinc-600`}>
                   <div className="text-center">순위</div>
-                  <div>닉네임</div>
-                  <div className="text-right">점수</div>
+                  <div>{sortHeader('닉네임', 'name')}</div>
+                  <div>{sortHeader('점수', 'score', 'right')}</div>
+                  {isGuild && <div>{sortHeader('승률', 'winrate', 'right')}</div>}
                   <div className="text-right">변동</div>
                 </div>
                 <div className="max-h-[640px] overflow-auto">
-                  {ranking.map((row) => (
-                    <div key={row.memberId} className="grid grid-cols-[0.5fr_1.6fr_1fr_0.9fr] items-center border-t border-zinc-100 px-3 py-2.5 text-sm">
+                  {displayRanking.map((row) => (
+                    <div key={row.memberId} className={`grid ${rankGridCols} items-center border-t border-zinc-100 px-3 py-2.5 text-sm`}>
                       <div className="text-center font-semibold text-zinc-700">
                         {row.rank <= 3 ? (
                           <span className={['inline-flex h-6 w-6 items-center justify-center rounded-full text-xs text-white', row.rank === 1 ? 'bg-amber-500' : row.rank === 2 ? 'bg-zinc-400' : 'bg-amber-700'].join(' ')}>
@@ -200,6 +349,11 @@ export default function StatsBoard({ type, members }: Props) {
                       </div>
                       <div className="font-medium text-zinc-800">{row.name}</div>
                       <div className="text-right tabular-nums">{row.score.toLocaleString()}</div>
+                      {isGuild && (
+                        <div className="text-right text-xs font-semibold tabular-nums text-zinc-600">
+                          {winRateText(records[row.memberId]?.wins ?? 0, records[row.memberId]?.losses ?? 0)}
+                        </div>
+                      )}
                       <div className={`text-right text-xs font-semibold tabular-nums ${deltaColorClass(row.delta)}`}>
                         {deltaText(row.delta) || '-'}
                       </div>
@@ -241,7 +395,7 @@ export default function StatsBoard({ type, members }: Props) {
           <CardHeader>
             <CardTitle className="text-xl">같은 총력전 점수구간 · 길드전 점수 분포</CardTitle>
             <CardDescription>
-              직전 완료 총력전 시즌 점수 구간으로 묶은 뒤, 각 길드원의 선택 시즌 길드전 점수를 비교합니다.
+              직전 완료 총력전 시즌 점수 구간으로 묶은 뒤, 각 길드원의 선택 시즌 길드전 점수와 승률을 비교합니다.
             </CardDescription>
             {settledPowerSeason && (
               <div className="pt-1 text-sm text-zinc-600">
@@ -271,6 +425,7 @@ export default function StatsBoard({ type, members }: Props) {
                       <span key={m.member} className="inline-flex items-center gap-1 rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-xs">
                         <span className="font-medium text-zinc-800">{m.member}</span>
                         <span className="tabular-nums text-zinc-500">길 {m.guild.toLocaleString()}</span>
+                        <span className="tabular-nums text-zinc-400">· {m.winrate}</span>
                       </span>
                     ))}
                   </div>
