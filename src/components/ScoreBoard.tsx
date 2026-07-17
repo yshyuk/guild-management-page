@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Plus, Trash2, Table2, TrendingUp, Play, Flag } from 'lucide-react';
+import { Plus, Trash2, Table2, TrendingUp, Play, Flag, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import {
   Card,
   CardContent,
@@ -21,7 +21,7 @@ import { computeDelta, deltaText, deltaColorClass } from '@/lib/score';
 import { toScoreMap, prevSeason, sortSeasons, endedSeasons } from '@/lib/analysis';
 import { formatDate } from '@/lib/dates';
 import ScoreChart from '@/components/ScoreChart';
-import { winRateText } from '@/lib/winrate';
+import { winRate, winRateText } from '@/lib/winrate';
 import {
   Dialog,
   DialogContent,
@@ -34,6 +34,8 @@ type Props = {
   type: ScoreType;
   members: Member[];
 };
+
+type SortKey = 'name' | 'score' | 'winrate';
 
 export default function ScoreBoard({ type, members }: Props) {
   const today = formatDate(new Date());
@@ -50,12 +52,49 @@ export default function ScoreBoard({ type, members }: Props) {
   const [newSeasonEnd, setNewSeasonEnd] = useState('');
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<'table' | 'chart'>('table');
+  const [sortKey, setSortKey] = useState<SortKey>('name');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+
+  const toggleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(key);
+      // 이름은 오름차순(ㄱㄴㄷ), 점수·승률은 높은 순부터 보는 게 자연스러움
+      setSortDir(key === 'name' ? 'asc' : 'desc');
+    }
+  };
 
   const selectedSeason = useMemo(
     () => seasons.find((s) => s.id === selectedSeasonId) ?? null,
     [seasons, selectedSeasonId],
   );
   const sortedSeasons = useMemo(() => sortSeasons(seasons), [seasons]);
+
+  // 표시용 정렬: 이름(ㄱㄴㄷ)/점수/승률 · 오름/내림. 점수·승률 미입력은 항상 하단.
+  const sortedMembers = useMemo(() => {
+    const dir = sortDir === 'asc' ? 1 : -1;
+    const wr = (id: number) => winRate(records[id]?.wins ?? 0, records[id]?.losses ?? 0);
+    return [...members].sort((a, b) => {
+      if (sortKey === 'score') {
+        const sa = scoreMap[a.id];
+        const sb = scoreMap[b.id];
+        if (sa === undefined && sb === undefined) return a.name.localeCompare(b.name, 'ko');
+        if (sa === undefined) return 1;
+        if (sb === undefined) return -1;
+        return (sa - sb) * dir || a.name.localeCompare(b.name, 'ko');
+      }
+      if (sortKey === 'winrate') {
+        const wa = wr(a.id);
+        const wb = wr(b.id);
+        if (wa === null && wb === null) return a.name.localeCompare(b.name, 'ko');
+        if (wa === null) return 1;
+        if (wb === null) return -1;
+        return (wa - wb) * dir || a.name.localeCompare(b.name, 'ko');
+      }
+      return a.name.localeCompare(b.name, 'ko') * dir;
+    });
+  }, [members, sortKey, sortDir, scoreMap, records]);
 
   // 시즌 목록 + 타입 전체 점수 로드
   useEffect(() => {
@@ -294,6 +333,43 @@ export default function ScoreBoard({ type, members }: Props) {
         ? '진행 중'
         : '대기';
 
+  const sortIcon = (sk: SortKey) =>
+    sortKey !== sk ? (
+      <ArrowUpDown className="h-3 w-3 text-zinc-300" />
+    ) : sortDir === 'asc' ? (
+      <ArrowUp className="h-3 w-3" />
+    ) : (
+      <ArrowDown className="h-3 w-3" />
+    );
+
+  const sortHeader = (label: string, sk: SortKey, align: 'left' | 'right' | 'center' = 'left') => (
+    <button
+      type="button"
+      onClick={() => toggleSort(sk)}
+      className={[
+        'flex w-full items-center gap-0.5 hover:text-zinc-900',
+        align === 'right' ? 'justify-end' : align === 'center' ? 'justify-center' : '',
+      ].join(' ')}
+    >
+      <span>{label}</span>
+      {sortIcon(sk)}
+    </button>
+  );
+
+  const mobileSortBtn = (label: string, sk: SortKey) => (
+    <button
+      type="button"
+      onClick={() => toggleSort(sk)}
+      className={[
+        'inline-flex items-center gap-0.5 rounded-full border px-2.5 py-1 text-xs font-medium',
+        sortKey === sk ? 'border-zinc-900 bg-zinc-900 text-white' : 'border-zinc-200 text-zinc-600',
+      ].join(' ')}
+    >
+      {label}
+      {sortKey === sk ? (sortDir === 'asc' ? ' ↑' : ' ↓') : ''}
+    </button>
+  );
+
   return (
     <Card className="rounded-[28px] border-0 shadow-sm">
       <CardHeader className="space-y-4">
@@ -340,11 +416,11 @@ export default function ScoreBoard({ type, members }: Props) {
             />
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium">시작일</label>
+            <label className="text-sm font-medium">시작일 <span className="font-normal text-zinc-400">(선택)</span></label>
             <Input type="date" value={newSeasonStart} onChange={(e) => setNewSeasonStart(e.target.value)} className="rounded-2xl" />
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium">종료일</label>
+            <label className="text-sm font-medium">종료일 <span className="font-normal text-zinc-400">(선택)</span></label>
             <Input type="date" value={newSeasonEnd} min={newSeasonStart} onChange={(e) => setNewSeasonEnd(e.target.value)} className="rounded-2xl" />
           </div>
           <Button className="rounded-2xl" onClick={() => void addSeason()}>
@@ -441,7 +517,13 @@ export default function ScoreBoard({ type, members }: Props) {
               <>
               {isGuild && (
                 <div className="space-y-2.5 md:hidden">
-                  {members.map((member) => {
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs text-zinc-400">정렬</span>
+                    {mobileSortBtn('이름', 'name')}
+                    {mobileSortBtn('점수', 'score')}
+                    {mobileSortBtn('승률', 'winrate')}
+                  </div>
+                  {sortedMembers.map((member) => {
                     const score = getScore(member.id);
                     const delta = computeDelta(score, prevMap?.get(member.id) ?? null);
                     const rec = records[member.id];
@@ -519,21 +601,21 @@ export default function ScoreBoard({ type, members }: Props) {
               )}
               <div className={`${isGuild ? 'hidden overflow-x-auto md:block' : 'overflow-hidden'} rounded-2xl border border-zinc-200`}>
                 <div className={`grid ${gridCols} ${isGuild ? 'min-w-[860px]' : ''} bg-zinc-50 px-3 py-3 text-xs font-semibold text-zinc-600`}>
-                  <div>{type} 점수변동</div>
-                  <div className="text-right">점수</div>
+                  <div>{sortHeader(`${type} 점수변동`, 'name')}</div>
+                  <div>{sortHeader('점수', 'score', 'right')}</div>
                   <div className="text-right">변동</div>
                   {isGuild && (
                     <>
                       <div className="text-center">5판 입력</div>
                       <div className="text-center">전적</div>
-                      <div className="text-right">승률</div>
+                      <div>{sortHeader('승률', 'winrate', 'right')}</div>
                       <div className="text-center">최근 입력</div>
                       <div className="text-center">액션</div>
                     </>
                   )}
                 </div>
                 <div className="max-h-[680px] overflow-auto">
-                  {members.map((member, idx) => {
+                  {sortedMembers.map((member, idx) => {
                     const score = getScore(member.id);
                     const delta = computeDelta(score, prevMap?.get(member.id) ?? null);
                     const rec = records[member.id];
