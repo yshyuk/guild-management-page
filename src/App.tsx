@@ -12,6 +12,8 @@ import {
   Square,
   Trash2,
   Wand2,
+  LogOut,
+  ShieldCheck,
 } from 'lucide-react';
 import {
   Card,
@@ -62,6 +64,7 @@ import type {
   Warning,
 } from '@/lib/types';
 import { applyMark, type PeriodKind, type PendingMark } from '@/lib/periodMark';
+import { useAuth } from '@/lib/auth';
 
 type TabValue = 'dashboard' | 'input' | 'score' | 'stats' | 'manage';
 
@@ -70,6 +73,7 @@ const contentOptions: ContentType[] = ['길드전', '공성전', '강림원정�
 const kindLabel = (kind: PeriodKind) => (kind === 'guild' ? '길드전' : kind === 'power' ? '총력전' : '강림전');
 
 export default function App() {
+  const { canEdit, logout, requestAdminLogin } = useAuth();
   const today = formatDate(new Date());
   const [tab, setTab] = useState<TabValue>('dashboard');
   const [members, setMembers] = useState<Member[]>([]);
@@ -770,25 +774,43 @@ export default function App() {
               길드 컨텐츠 참여 관리
             </h1>
           </div>
+          <div className="ml-auto flex shrink-0 items-center gap-2">
+            <Badge variant={canEdit ? 'default' : 'secondary'} className="hidden rounded-full px-3 py-1 sm:inline-flex">
+              {canEdit ? '관리자' : '조회'}
+            </Badge>
+            {!canEdit && (
+              <Button variant="outline" className="rounded-2xl" onClick={requestAdminLogin}>
+                <ShieldCheck className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">관리자 로그인</span>
+              </Button>
+            )}
+            <Button variant="outline" size="icon" className="rounded-2xl" onClick={() => void logout()} aria-label="로그아웃" title="로그아웃">
+              <LogOut className="h-4 w-4" />
+            </Button>
+          </div>
         </motion.header>
 
         <Tabs value={tab} onValueChange={(value) => setTab(value as TabValue)} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5 rounded-[20px] bg-zinc-100 p-1 min-h-[56px] items-center shadow-[inset_0_1px_0_rgba(255,255,255,0.7),0_1px_3px_rgba(15,23,42,0.06)] sm:p-1.5">
+          <TabsList className={`grid w-full ${canEdit ? 'grid-cols-5' : 'grid-cols-3'} rounded-[20px] bg-zinc-100 p-1 min-h-[56px] items-center shadow-[inset_0_1px_0_rgba(255,255,255,0.7),0_1px_3px_rgba(15,23,42,0.06)] sm:p-1.5`}>
             <TabsTrigger value="dashboard" className="flex h-11 w-full flex-col items-center justify-center gap-0.5 rounded-[14px] px-1 text-[11px] font-medium text-zinc-600 transition sm:flex-row sm:gap-0 sm:px-4 sm:text-sm data-[state=active]:bg-white data-[state=active]:text-zinc-900 data-[state=active]:shadow-sm">
               <Calendar className="mr-0 h-4 w-4 sm:mr-2" />현황판
             </TabsTrigger>
-            <TabsTrigger value="input" className="flex h-11 w-full flex-col items-center justify-center gap-0.5 rounded-[14px] px-1 text-[11px] font-medium text-zinc-600 transition sm:flex-row sm:gap-0 sm:px-4 sm:text-sm data-[state=active]:bg-white data-[state=active]:text-zinc-900 data-[state=active]:shadow-sm">
-              <ClipboardList className="mr-0 h-4 w-4 sm:mr-2" />입력
-            </TabsTrigger>
+            {canEdit && (
+              <TabsTrigger value="input" className="flex h-11 w-full flex-col items-center justify-center gap-0.5 rounded-[14px] px-1 text-[11px] font-medium text-zinc-600 transition sm:flex-row sm:gap-0 sm:px-4 sm:text-sm data-[state=active]:bg-white data-[state=active]:text-zinc-900 data-[state=active]:shadow-sm">
+                <ClipboardList className="mr-0 h-4 w-4 sm:mr-2" />입력
+              </TabsTrigger>
+            )}
             <TabsTrigger value="score" className="flex h-11 w-full flex-col items-center justify-center gap-0.5 rounded-[14px] px-1 text-[11px] font-medium text-zinc-600 transition sm:flex-row sm:gap-0 sm:px-4 sm:text-sm data-[state=active]:bg-white data-[state=active]:text-zinc-900 data-[state=active]:shadow-sm">
               <Trophy className="mr-0 h-4 w-4 sm:mr-2" />점수
             </TabsTrigger>
             <TabsTrigger value="stats" className="flex h-11 w-full flex-col items-center justify-center gap-0.5 rounded-[14px] px-1 text-[11px] font-medium text-zinc-600 transition sm:flex-row sm:gap-0 sm:px-4 sm:text-sm data-[state=active]:bg-white data-[state=active]:text-zinc-900 data-[state=active]:shadow-sm">
               <BarChart3 className="mr-0 h-4 w-4 sm:mr-2" />통계
             </TabsTrigger>
-            <TabsTrigger value="manage" className="flex h-11 w-full flex-col items-center justify-center gap-0.5 rounded-[14px] px-1 text-[11px] font-medium text-zinc-600 transition sm:flex-row sm:gap-0 sm:px-4 sm:text-sm data-[state=active]:bg-white data-[state=active]:text-zinc-900 data-[state=active]:shadow-sm">
-              <Settings className="mr-0 h-4 w-4 sm:mr-2" />관리
-            </TabsTrigger>
+            {canEdit && (
+              <TabsTrigger value="manage" className="flex h-11 w-full flex-col items-center justify-center gap-0.5 rounded-[14px] px-1 text-[11px] font-medium text-zinc-600 transition sm:flex-row sm:gap-0 sm:px-4 sm:text-sm data-[state=active]:bg-white data-[state=active]:text-zinc-900 data-[state=active]:shadow-sm">
+                <Settings className="mr-0 h-4 w-4 sm:mr-2" />관리
+              </TabsTrigger>
+            )}
           </TabsList>
 
           {/* ── 현황판 ──────────────────────────────── */}
@@ -800,7 +822,9 @@ export default function App() {
                     <div>
                       <CardTitle className="text-xl">기간별 미참 현황</CardTitle>
                       <CardDescription>
-                        날짜 셀을 누르면 신규 입력, 색상 박스를 누르면 해당 데이터 수정으로 연결됩니다.
+                        {canEdit
+                          ? '날짜 셀을 누르면 신규 입력, 색상 박스를 누르면 해당 데이터 수정으로 연결됩니다.'
+                          : '조회 전용 모드입니다. 수정은 관리자 로그인 후 가능합니다.'}
                       </CardDescription>
                     </div>
                     <div className="flex items-center gap-2 self-start xl:self-auto">
@@ -887,6 +911,7 @@ export default function App() {
                         onEditLog={loadExistingEntry}
                         onPeriodMark={handlePeriodMark}
                         markedDate={pendingMark ? (pendingMark.start ?? pendingMark.end ?? null) : null}
+                        readOnly={!canEdit}
                       />
                     ))}
                   </div>
@@ -929,6 +954,7 @@ export default function App() {
           </TabsContent>
 
           {/* ── 입력 ──────────────────────────────── */}
+          {canEdit && (
           <TabsContent value="input" className="space-y-6">
             <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
               <Card className="rounded-[28px] border-0 shadow-sm">
@@ -1036,6 +1062,7 @@ export default function App() {
               </Card>
             </div>
           </TabsContent>
+          )}
 
           {/* ── 점수 ──────────────────────────────── */}
           <TabsContent value="score" className="space-y-6">
@@ -1048,6 +1075,7 @@ export default function App() {
           </TabsContent>
 
           {/* ── 관리 ──────────────────────────────── */}
+          {canEdit && (
           <TabsContent value="manage" className="space-y-6">
             <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
               <div className="space-y-6">
@@ -1246,6 +1274,7 @@ export default function App() {
               </Card>
             </div>
           </TabsContent>
+          )}
         </Tabs>
       </div>
     </div>

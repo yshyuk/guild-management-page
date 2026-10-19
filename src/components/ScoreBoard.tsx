@@ -22,6 +22,7 @@ import { toScoreMap, prevSeason, sortSeasons, endedSeasons } from '@/lib/analysi
 import { formatDate } from '@/lib/dates';
 import ScoreChart from '@/components/ScoreChart';
 import { winRate, winRateText } from '@/lib/winrate';
+import { useAuth } from '@/lib/auth';
 import {
   Dialog,
   DialogContent,
@@ -38,6 +39,7 @@ type Props = {
 type SortKey = 'name' | 'score' | 'winrate';
 
 export default function ScoreBoard({ type, members }: Props) {
+  const { canEdit } = useAuth();
   const today = formatDate(new Date());
   const isGuild = type === '길드전';
   const [records, setRecords] = useState<Record<number, GuildWarRecord>>({});
@@ -164,7 +166,8 @@ export default function ScoreBoard({ type, members }: Props) {
   };
 
   const persistCell = async (memberId: number) => {
-    if (selectedSeasonId === null) return;
+    // blur 마다 PUT 하므로 조회 권한에선 차단
+    if (!canEdit || selectedSeasonId === null) return;
     const value = getScore(memberId);
     try {
       await api.put('/scores', { seasonId: selectedSeasonId, memberId, score: value });
@@ -396,37 +399,41 @@ export default function ScoreBoard({ type, members }: Props) {
                 ))}
               </SelectContent>
             </Select>
-            <Button variant="outline" size="icon" className="rounded-2xl" onClick={deleteSeason} disabled={!selectedSeason}>
-              <Trash2 className="h-4 w-4" />
-            </Button>
+            {canEdit && (
+              <Button variant="outline" size="icon" className="rounded-2xl" onClick={deleteSeason} disabled={!selectedSeason}>
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
           </div>
         </div>
 
-        <div className="flex flex-wrap items-end gap-2">
-          <div className="space-y-2">
-            <label className="text-sm font-medium">새 시즌 이름</label>
-            <Input
-              value={newSeasonName}
-              onChange={(e) => setNewSeasonName(e.target.value)}
-              placeholder="예: 6월 시즌"
-              className="w-[200px] rounded-2xl"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') void addSeason();
-              }}
-            />
+        {canEdit && (
+          <div className="flex flex-wrap items-end gap-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">새 시즌 이름</label>
+              <Input
+                value={newSeasonName}
+                onChange={(e) => setNewSeasonName(e.target.value)}
+                placeholder="예: 6월 시즌"
+                className="w-[200px] rounded-2xl"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') void addSeason();
+                }}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">시작일 <span className="font-normal text-zinc-400">(선택)</span></label>
+              <Input type="date" value={newSeasonStart} onChange={(e) => setNewSeasonStart(e.target.value)} className="rounded-2xl" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">종료일 <span className="font-normal text-zinc-400">(선택)</span></label>
+              <Input type="date" value={newSeasonEnd} min={newSeasonStart} onChange={(e) => setNewSeasonEnd(e.target.value)} className="rounded-2xl" />
+            </div>
+            <Button className="rounded-2xl" onClick={() => void addSeason()}>
+              <Plus className="mr-1 h-4 w-4" />시즌 추가
+            </Button>
           </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">시작일 <span className="font-normal text-zinc-400">(선택)</span></label>
-            <Input type="date" value={newSeasonStart} onChange={(e) => setNewSeasonStart(e.target.value)} className="rounded-2xl" />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">종료일 <span className="font-normal text-zinc-400">(선택)</span></label>
-            <Input type="date" value={newSeasonEnd} min={newSeasonStart} onChange={(e) => setNewSeasonEnd(e.target.value)} className="rounded-2xl" />
-          </div>
-          <Button className="rounded-2xl" onClick={() => void addSeason()}>
-            <Plus className="mr-1 h-4 w-4" />시즌 추가
-          </Button>
-        </div>
+        )}
 
         {selectedSeason && (
           <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-zinc-200 bg-zinc-50/60 p-3">
@@ -451,6 +458,7 @@ export default function ScoreBoard({ type, members }: Props) {
                 type="date"
                 value={selectedSeason.start ?? ''}
                 onChange={(e) => void updateSeason({ start: e.target.value || null })}
+                disabled={!canEdit}
                 className="h-9 w-[150px] rounded-2xl"
               />
             </div>
@@ -460,15 +468,20 @@ export default function ScoreBoard({ type, members }: Props) {
                 type="date"
                 value={selectedSeason.end ?? ''}
                 onChange={(e) => void updateSeason({ end: e.target.value || null })}
+                disabled={!canEdit}
                 className="h-9 w-[150px] rounded-2xl"
               />
             </div>
-            <Button variant="outline" className="rounded-2xl" onClick={() => void updateSeason({ start: today })}>
-              <Play className="mr-1 h-4 w-4" />시작
-            </Button>
-            <Button variant="outline" className="rounded-2xl" onClick={() => void updateSeason({ end: today })}>
-              <Flag className="mr-1 h-4 w-4" />종료
-            </Button>
+            {canEdit && (
+              <>
+                <Button variant="outline" className="rounded-2xl" onClick={() => void updateSeason({ start: today })}>
+                  <Play className="mr-1 h-4 w-4" />시작
+                </Button>
+                <Button variant="outline" className="rounded-2xl" onClick={() => void updateSeason({ end: today })}>
+                  <Flag className="mr-1 h-4 w-4" />종료
+                </Button>
+              </>
+            )}
           </div>
         )}
       </CardHeader>
@@ -478,7 +491,7 @@ export default function ScoreBoard({ type, members }: Props) {
           <div className="py-16 text-center text-sm text-zinc-400">불러오는 중...</div>
         ) : !selectedSeason ? (
           <div className="rounded-2xl border border-dashed border-zinc-300 px-4 py-16 text-center text-sm text-zinc-500">
-            등록된 시즌이 없습니다. 위에서 새 시즌을 추가하세요.
+            {canEdit ? '등록된 시즌이 없습니다. 위에서 새 시즌을 추가하세요.' : '등록된 시즌이 없습니다.'}
           </div>
         ) : members.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-zinc-300 px-4 py-16 text-center text-sm text-zinc-500">
@@ -541,6 +554,7 @@ export default function ScoreBoard({ type, members }: Props) {
                               value={score ?? ''}
                               onChange={(e) => handleScoreChange(member.id, e.target.value)}
                               onBlur={() => void persistCell(member.id)}
+                              readOnly={!canEdit}
                               className="h-8 w-[72px] rounded-lg text-right"
                             />
                             <span className={`min-w-[42px] text-right text-xs font-semibold tabular-nums ${deltaColorClass(delta)}`}>
@@ -555,6 +569,7 @@ export default function ScoreBoard({ type, members }: Props) {
                               key={i}
                               type="button"
                               onClick={() => cycleOx(member.id, i)}
+                              disabled={!canEdit}
                               className={[
                                 'h-8 w-8 rounded-md border text-xs font-semibold',
                                 v === 'o'
@@ -581,7 +596,7 @@ export default function ScoreBoard({ type, members }: Props) {
                             <Button
                               className="h-7 rounded-lg px-3 text-xs"
                               onClick={() => void recordMatch(member.id)}
-                              disabled={ox.every((v) => v === null) || !!recordingIds[member.id]}
+                              disabled={!canEdit || ox.every((v) => v === null) || !!recordingIds[member.id]}
                             >
                               기록
                             </Button>
@@ -589,6 +604,7 @@ export default function ScoreBoard({ type, members }: Props) {
                               variant="outline"
                               className="h-7 rounded-lg px-3 text-xs"
                               onClick={() => openEdit(member.id)}
+                              disabled={!canEdit}
                             >
                               수정
                             </Button>
@@ -635,6 +651,7 @@ export default function ScoreBoard({ type, members }: Props) {
                             value={score ?? ''}
                             onChange={(e) => handleScoreChange(member.id, e.target.value)}
                             onBlur={() => void persistCell(member.id)}
+                            readOnly={!canEdit}
                             className="h-8 rounded-lg text-right"
                           />
                         </div>
@@ -649,6 +666,7 @@ export default function ScoreBoard({ type, members }: Props) {
                                   key={i}
                                   type="button"
                                   onClick={() => cycleOx(member.id, i)}
+                                  disabled={!canEdit}
                                   className={[
                                     'h-6 w-6 rounded-md border text-xs font-semibold',
                                     v === 'o'
@@ -672,7 +690,7 @@ export default function ScoreBoard({ type, members }: Props) {
                               <Button
                                 className="h-7 rounded-lg px-2 text-xs"
                                 onClick={() => void recordMatch(member.id)}
-                                disabled={ox.every((v) => v === null) || !!recordingIds[member.id]}
+                                disabled={!canEdit || ox.every((v) => v === null) || !!recordingIds[member.id]}
                               >
                                 기록
                               </Button>
@@ -680,6 +698,7 @@ export default function ScoreBoard({ type, members }: Props) {
                                 variant="outline"
                                 className="h-7 rounded-lg px-2 text-xs"
                                 onClick={() => openEdit(member.id)}
+                                disabled={!canEdit}
                               >
                                 수정
                               </Button>

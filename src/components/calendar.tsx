@@ -37,20 +37,21 @@ type DayLogBadgeProps = {
   log: MissLog;
   compact?: boolean;
   onEditLog: (log: MissLog) => void;
-  inSelectedRange: boolean;
+  clickable: boolean;
 };
 
-function DayLogBadge({ log, compact = false, onEditLog, inSelectedRange }: DayLogBadgeProps) {
+function DayLogBadge({ log, compact = false, onEditLog, clickable }: DayLogBadgeProps) {
   return (
     <button
       type="button"
       onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
         e.stopPropagation();
-        if (!inSelectedRange) return;
+        if (!clickable) return;
         onEditLog(log);
       }}
       className={[
-        'w-full rounded-xl border text-left transition hover:shadow-sm',
+        'w-full rounded-xl border text-left transition',
+        clickable ? 'hover:shadow-sm' : 'cursor-default',
         compact ? 'px-1.5 py-1 text-[11px] leading-4' : 'px-2.5 py-2 text-xs leading-5',
         contentStyle[log.content],
       ].join(' ')}
@@ -80,6 +81,8 @@ type DayCellProps = {
   onEditLog: (log: MissLog) => void;
   onPeriodMark: (kind: PeriodKind, edge: 'start' | 'end', dateStr: string) => void;
   markedDate: string | null;
+  /** 조회 권한: 입력 이동·기간 지정 메뉴 비활성 */
+  readOnly?: boolean;
 };
 
 export function DayCell({
@@ -95,9 +98,11 @@ export function DayCell({
   onEditLog,
   onPeriodMark,
   markedDate,
+  readOnly = false,
 }: DayCellProps) {
   const dateStr = formatDate(day);
   const inSelectedRange = isWithin(dateStr, rangeStart, rangeEnd);
+  const editable = inSelectedRange && !readOnly;
   const dayLogs = logs.filter((log) => log.date === dateStr);
   const guildWar = guildWarPeriods.some((period) => isWithin(dateStr, period.start, period.end));
   const powerWar = powerWarPeriods.some((period) => isWithin(dateStr, period.start, period.end));
@@ -116,11 +121,12 @@ export function DayCell({
 
   const cell = (
     <div
-      role={inSelectedRange ? 'button' : undefined}
-      tabIndex={inSelectedRange ? 0 : -1}
+      role={editable ? 'button' : undefined}
+      tabIndex={editable ? 0 : -1}
       className={[
         'relative flex min-h-[110px] w-full flex-col rounded-2xl border p-2 text-left transition sm:min-h-[140px] sm:p-3 md:min-h-[180px]',
-        inSelectedRange ? 'cursor-pointer bg-white hover:shadow-sm' : 'bg-zinc-50 text-zinc-400 opacity-65',
+        inSelectedRange ? 'bg-white' : 'bg-zinc-50 text-zinc-400 opacity-65',
+        editable ? 'cursor-pointer hover:shadow-sm' : '',
         // 총력전(초록) 우선, 그다음 길드전(노랑), 둘 다 아니면 기본
         powerWar
           ? 'border-emerald-500 border-2'
@@ -154,20 +160,20 @@ export function DayCell({
               log={log}
               compact
               onEditLog={onEditLog}
-              inSelectedRange={inSelectedRange}
+              clickable={editable}
             />
           ))}
         </div>
         <div className="hidden space-y-1.5 sm:block">
           {dayLogs.map((log) => (
-            <DayLogBadge key={log.id} log={log} onEditLog={onEditLog} inSelectedRange={inSelectedRange} />
+            <DayLogBadge key={log.id} log={log} onEditLog={onEditLog} clickable={editable} />
           ))}
         </div>
       </div>
     </div>
   );
 
-  if (!inSelectedRange) return cell;
+  if (!editable) return cell;
 
   return (
     <DropdownMenu>

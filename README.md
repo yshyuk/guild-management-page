@@ -51,7 +51,34 @@ npm run db:migrate:local     # 로컬 적용
    npm run deploy
    ```
 
-> 인증은 두지 않았으므로 URL을 아는 사람은 누구나 접근/수정할 수 있습니다.
+## 접근 비밀번호
+
+첫 화면에서 비밀번호를 입력해야 들어갈 수 있습니다. 비밀번호는 2종류입니다.
+
+| 권한 | 비밀번호 | 가능한 작업 |
+|---|---|---|
+| 조회 | `VIEWER_PASSWORD` | 현황판·점수·통계 보기 (입력·관리 탭 숨김, 수정 불가) |
+| 관리자 | `ADMIN_PASSWORD` | 전체 기능 |
+
+- 검증은 Worker(`/api/*` 미들웨어)에서 합니다. 로그인하지 않으면 401, 조회 권한으로 수정을 시도하면 403입니다.
+- 세션은 HMAC 서명 쿠키(HttpOnly)로 **7일** 유지됩니다.
+- 모든 세션을 강제로 끊으려면 `AUTH_SECRET`을 교체합니다.
+
+**운영 secret 설정** (최초 배포 **전**에 필수 — 없으면 아무도 로그인할 수 없습니다):
+
+```bash
+npx wrangler secret put VIEWER_PASSWORD
+npx wrangler secret put ADMIN_PASSWORD
+npx wrangler secret put AUTH_SECRET     # 예: openssl rand -hex 32 출력값
+```
+
+**로컬 개발**: 프로젝트 루트의 `.dev.vars`(gitignore 대상)에 같은 키를 넣습니다.
+
+```
+VIEWER_PASSWORD=view-local
+ADMIN_PASSWORD=admin-local
+AUTH_SECRET=<openssl rand -hex 32>
+```
 
 ## 구조
 
