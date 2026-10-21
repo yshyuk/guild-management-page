@@ -1,11 +1,17 @@
 // 얇은 fetch 래퍼. 모든 API 는 /api/* 로 호출된다.
 
+// 401(세션 만료) 수신 시 발행 → AuthGate 가 로그인 화면으로 전환
+export const AUTH_EXPIRED_EVENT = 'auth:expired';
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`/api${path}`, {
     headers: init?.body ? { 'Content-Type': 'application/json' } : undefined,
     cache: 'no-store',
     ...init,
   });
+  if (res.status === 401) {
+    window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT));
+  }
   if (!res.ok) {
     throw new Error(`API ${init?.method ?? 'GET'} ${path} failed: ${res.status}`);
   }

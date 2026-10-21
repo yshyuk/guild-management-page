@@ -10,10 +10,15 @@ import warnings from './routes/warnings';
 import scoreSeasons from './routes/score-seasons';
 import scores from './routes/scores';
 import guildWarRecords from './routes/guild-war-records';
+import auth from './routes/auth';
+import { requireAuth } from './auth';
 
 const app = new Hono<AppEnv>();
 
 const api = new Hono<AppEnv>();
+// 인증 미들웨어는 다른 라우트보다 먼저 등록해야 적용된다 (/api/auth/* 는 내부에서 통과)
+api.use('*', requireAuth);
+api.route('/auth', auth);
 api.route('/members', members);
 api.route('/miss-logs', missLogs);
 api.route('/guild-war-periods', guildWarPeriods);
